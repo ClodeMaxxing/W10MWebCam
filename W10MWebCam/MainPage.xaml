@@ -1,0 +1,92 @@
+<Page
+    x:Class="W10MWebCam.MainPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Background="Black">
+
+    <Page.Resources>
+        <Style x:Key="Section" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#7FB2E5" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0,10,0,2" />
+        </Style>
+        <Style x:Key="Note" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#999" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+    </Page.Resources>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="250" />
+        </Grid.ColumnDefinitions>
+
+        <CaptureElement x:Name="PreviewElement" Stretch="Uniform" />
+        <TextBlock x:Name="PreviewOffText" Text="Preview off" Foreground="#888" TextWrapping="Wrap" TextAlignment="Center"
+                   HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed" Margin="12" />
+
+        <ScrollViewer Grid.Column="1" Background="#1A1A1A" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="10,6,10,10">
+                <TextBlock x:Name="TitleText" Text="W10MWebCam" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,6" />
+
+                <Button x:Name="StartButton" Content="Start streaming" HorizontalAlignment="Stretch"
+                        Margin="0,0,0,8" Click="StartButton_Click" IsEnabled="False" />
+
+                <TextBlock Text="Connect from PC to:" Foreground="#AAA" FontSize="12" />
+                <TextBlock x:Name="AddressText" Text="…" IsTextSelectionEnabled="True" TextWrapping="Wrap"
+                           FontSize="14" FontWeight="SemiBold" Margin="0,0,0,6" />
+
+                <TextBlock x:Name="StatsText" Text="Idle" FontSize="13" TextWrapping="Wrap" Margin="0,0,0,4" />
+                <TextBlock x:Name="PowerText" Text="" Style="{StaticResource Note}" Margin="0,0,0,4" />
+                <Border x:Name="NoticeBox" Background="#2A2610" BorderBrush="#E8D040" BorderThickness="2,0,0,0"
+                        Padding="6,4" Margin="0,0,0,6" Visibility="Collapsed">
+                    <TextBlock x:Name="NoticeText" Foreground="#F0E0A0" FontSize="12" TextWrapping="Wrap" />
+                </Border>
+
+                <TextBlock Text="VIDEO" Style="{StaticResource Section}" />
+                <ComboBox x:Name="ResolutionBox" Header="Resolution" SelectionChanged="Setting_Changed" HorizontalAlignment="Stretch" Margin="0,0,0,6" />
+                <ComboBox x:Name="BitrateBox" Header="Bitrate" SelectionChanged="Setting_Changed" HorizontalAlignment="Stretch" Margin="0,0,0,6" />
+                <ComboBox x:Name="KeyframeBox" Header="Keyframe every" SelectionChanged="Setting_Changed" HorizontalAlignment="Stretch" Margin="0,0,0,6" />
+                <ToggleSwitch x:Name="PowerSaveToggle" Header="Blackout screen while streaming (tap to wake)" IsOn="True" Toggled="PowerSaveToggle_Toggled" />
+                <ToggleSwitch x:Name="AutoStartToggle" Header="Start streaming when app opens" IsOn="True" Toggled="AutoStartToggle_Toggled" />
+                <ToggleSwitch x:Name="PreviewToggle" Header="Preview on phone (changes apply when the stream is stopped)" IsOn="True" Toggled="PreviewToggle_Toggled" />
+
+                <TextBlock Text="CAMERA" Style="{StaticResource Section}" />
+                <ToggleSwitch x:Name="CameraAutoToggle" Header="Automatic focus, exposure and white balance" IsOn="True" Toggled="CameraAutoToggle_Toggled" />
+                <Button x:Name="FocusOnceButton" Content="Focus once and lock" HorizontalAlignment="Stretch" Margin="0,0,0,4" Click="FocusOnceButton_Click" />
+                <TextBlock x:Name="CameraText" Text="" Style="{StaticResource Note}" />
+                <ToggleSwitch x:Name="TorchToggle" Header="Flashlight (while streaming, off after 30 s)" Toggled="TorchToggle_Toggled" IsEnabled="False" />
+                <ToggleSwitch x:Name="SaveOisToggle" Header="Stabilization off (fixed mount, less heat)" Toggled="SaveOisToggle_Toggled" />
+                <ToggleSwitch x:Name="SaveFocusToggle" Header="Hold focus once it has settled" Toggled="SaveFocusToggle_Toggled" />
+                <TextBlock Text="Manual focus, exposure and white balance: open http://127.0.0.1:8020/settings on the PC."
+                           Style="{StaticResource Note}" />
+
+                <TextBlock Text="POWER" Style="{StaticResource Section}" />
+                <ToggleSwitch x:Name="HeatAutoToggle" Header="Lower to 1080p / 6 Mbps if the phone overheats" Toggled="HeatAutoToggle_Toggled" />
+                <ComboBox x:Name="UnplugBox" Header="When unplugged, stop streaming after" SelectionChanged="UnplugBox_SelectionChanged"
+                          HorizontalAlignment="Stretch" Margin="0,0,0,6" />
+
+                <TextBlock Text="LOG" Style="{StaticResource Section}" />
+                <TextBlock x:Name="LogText" FontSize="11" TextWrapping="Wrap" Foreground="#CCC"
+                           IsTextSelectionEnabled="True" FontFamily="Consolas" />
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Full black overlay: on an OLED screen black pixels are off, so this costs almost no power and avoids burn-in. -->
+        <Border x:Name="BlackoutOverlay" Grid.ColumnSpan="2" Background="Black" Visibility="Collapsed" Tapped="BlackoutOverlay_Tapped">
+            <TextBlock Text="Streaming - tap to show controls" Foreground="#222" FontSize="12"
+                       HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,8" />
+        </Border>
+
+        <!-- Power-loss countdown (above the blackout overlay). -->
+        <Border x:Name="UnplugPanel" Grid.ColumnSpan="2" Background="#E6000000" Visibility="Collapsed">
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="420" Margin="16">
+                <TextBlock x:Name="UnplugText" Text="" FontSize="18" TextWrapping="Wrap" TextAlignment="Center" Foreground="#F0E0A0" />
+                <Button x:Name="KeepStreamingButton" Content="Keep streaming" HorizontalAlignment="Center" Margin="0,14,0,0" Click="KeepStreamingButton_Click" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</Page>

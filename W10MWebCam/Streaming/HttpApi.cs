@@ -48,8 +48,8 @@ namespace W10MWebCam.Streaming
         public volatile bool WebEnabled = true, LogEnabled, StatsEnabled;
         public WebLogin Login = new WebLogin();
         public Action<string> Log = _ => { };
-        /// <summary>The phone's own Wi-Fi address (for the Host check on Wi-Fi changes).</summary>
-        public Func<string> GetPhoneAddress = () => "";
+        /// <summary>The phone's own addresses (for the Host check over Wi-Fi); they follow network changes.</summary>
+        public Func<IList<string>> GetPhoneAddresses = () => new string[0];
         public Func<Task<string>> GetStatusJson = () => Task.FromResult("{}");
         public Func<Task<string>> GetSettingsJson = () => Task.FromResult("{}");
         /// <summary>Applies form fields; returns a one-line result text.</summary>
@@ -62,6 +62,12 @@ namespace W10MWebCam.Streaming
                 string path = r.Path.TrimEnd('/');
                 if (!WebEnabled)
                     return Reply(403, "Forbidden", "text/plain", "The web page is switched off on the phone (W10MWebCam > Network > Web page).\n");
+                // Every page, not only changes: a DNS-rebinding page (another site that points its name at the phone) would
+                // send its own name as Host and could read the log and settings otherwise. Clients without a Host header
+                // (HTTP/1.0 tools) still get the pages; changes need it over Wi-Fi (below).
+                string host = Header(r, "Host");
+                if (!string.IsNullOrEmpty(host) && !HostIsPhone(host, r.FromUsb))
+                    return Reply(403, "Forbidden", "text/plain", "Use the phone's address (http://127.0.0.1:8020 over USB, http://PHONE-IP:5001 over Wi-Fi)\n");
                 if (path == "/log")
                     return LogEnabled
                         ? Reply(200, "OK", "text/plain; charset=utf-8", GetLog(), "Cache-Control: no-store\r\n")
@@ -126,15 +132,17 @@ namespace W10MWebCam.Streaming
             }
         }
 
-        /// <summary>The Host header names the phone: 127.0.0.1 / localhost over USB, the phone's Wi-Fi address otherwise.</summary>
+        /// <summary>The Host header names the phone: 127.0.0.1 / localhost over USB, one of the phone's addresses otherwise.</summary>
         private bool HostIsPhone(string host, bool fromUsb)
         {
             if (string.IsNullOrEmpty(host)) return fromUsb; // HTTP/1.0 clients (PowerShell scripts) may leave it out
             int colon = host.LastIndexOf(':');
-            string name = colon > 0 && host.IndexOf(']') < colon ? host.Substring(0, colon) : host;
+            string name = (colon > 0 && host.IndexOf(']') < colon ? host.Substring(0, colon) : host).Trim('[', ']');
             if (name == "127.0.0.1" || name.Equals("localhost", StringComparison.OrdinalIgnoreCase)) return true;
-            string phone = GetPhoneAddress();
-            return !fromUsb && !string.IsNullOrEmpty(phone) && name == phone;
+            if (fromUsb) return false;
+            foreach (var phone in GetPhoneAddresses() ?? new string[0])
+                if (!string.IsNullOrEmpty(phone) && name.Equals(phone, StringComparison.OrdinalIgnoreCase)) return true;
+            return false;
         }
 
         private string WithAccess(string json, HttpRequest r, bool canWrite, string result)

@@ -89,6 +89,8 @@ namespace W10MWebCam
             _server.Log = Log;
             _tuning.Log = Log;
             SetUpWeb();
+            try { RefreshAddresses(); } catch (Exception ex) { Log("Addresses: " + ex.Message); } // the Host check needs them before the camera is up
+            NetworkInformation.NetworkStatusChanged += OnNetworkStatusChanged;
             _server.Http = _http;
             _logServer = new LogServer(_http) { Log = Log };
             _statsTimer.Tick += StatsTimer_Tick;
@@ -254,18 +256,52 @@ namespace W10MWebCam
 
         private void ShowAddresses()
         {
-            var ips = NetworkInformation.GetHostNames()
-                .Where(h => h.Type == HostNameType.Ipv4 && h.IPInformation != null)
-                .Select(h => h.CanonicalName)
-                .Where(ip => !ip.StartsWith("169.254.")) // link-local addresses aren't reachable from the PC
-                .ToList();
-            _wifiAddress = ips.FirstOrDefault() ?? "";
+            RefreshAddresses();
+            _addressesShown = true;
             UpdateAddresses();
-            Log("Addresses: video USB tcp://127.0.0.1:" + UsbPort + (_wifiAddress.Length > 0 ? ", Wi-Fi tcp://" + _wifiAddress + ":" + WifiPort : ", no Wi-Fi") +
-                "; settings http://127.0.0.1:" + UsbPort + "/settings" + (_wifiAddress.Length > 0 ? ", http://" + _wifiAddress + ":" + LogPort + "/settings" : ""));
+            LogAddresses();
         }
 
-        private string _wifiAddress = "";
+        private void LogAddresses() =>
+            Log("Addresses: video USB tcp://127.0.0.1:" + UsbPort + (_wifiAddress.Length > 0 ? ", Wi-Fi tcp://" + _wifiAddress + ":" + WifiPort : ", no Wi-Fi") +
+                "; settings http://127.0.0.1:" + UsbPort + "/settings" + (_wifiAddress.Length > 0 ? ", http://" + _wifiAddress + ":" + LogPort + "/settings" : ""));
+
+        /// <summary>
+        /// Reads the phone's addresses: the first IPv4 one is shown as the Wi-Fi address, and all of them pass the web
+        /// page's Host check. Returns true when the shown address changed.
+        /// </summary>
+        private bool RefreshAddresses()
+        {
+            var hosts = NetworkInformation.GetHostNames()
+                .Where(h => (h.Type == HostNameType.Ipv4 || h.Type == HostNameType.Ipv6) && h.IPInformation != null)
+                .ToList();
+            string wifi = hosts.Where(h => h.Type == HostNameType.Ipv4)
+                .Select(h => h.CanonicalName)
+                .FirstOrDefault(ip => !ip.StartsWith("169.254.")) ?? ""; // link-local addresses aren't reachable from the PC
+            _phoneAddresses = hosts.Select(h => h.CanonicalName).ToArray();
+            bool changed = wifi != _wifiAddress;
+            _wifiAddress = wifi;
+            return changed;
+        }
+
+        /// <summary>A new DHCP lease or another Wi-Fi network: the shown addresses and the Host check follow.</summary>
+        private void OnNetworkStatusChanged(object sender)
+        {
+            var _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+            {
+                try
+                {
+                    if (!RefreshAddresses()) return;
+                    if (_addressesShown) UpdateAddresses();
+                    LogAddresses();
+                }
+                catch (Exception ex) { Log("Network change: " + ex.Message); }
+            });
+        }
+
+        private volatile string _wifiAddress = "";
+        private volatile string[] _phoneAddresses = new string[0];
+        private bool _addressesShown;
 
         // ------------------------------------------------------------------ start / stop
 

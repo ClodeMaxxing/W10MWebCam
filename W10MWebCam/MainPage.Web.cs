@@ -22,7 +22,7 @@ namespace W10MWebCam
             _http.GetSettingsJson = () => OnUiAsync(() => Task.FromResult(SettingsJson().Stringify()));
             _http.ApplySettings = form => OnUiAsync(() => ApplySettingsAsync(form));
             _http.GetStatsRows = StatsRows;
-            _http.GetPhoneAddress = () => _wifiAddress;
+            _http.GetPhoneAddresses = () => _phoneAddresses;
             _http.Log = Log;
             _http.Login.Log = Log;
             try { _http.Login.Load(); } catch (Exception ex) { Log("Login: " + ex.Message); }

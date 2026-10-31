@@ -13,6 +13,7 @@ namespace W10MWebCam.Streaming
     /// A viewer that falls behind is skipped forward to the next keyframe, so delay never builds up.
     /// The USB port (8020) is the only port Microsoft's IP-over-USB forwards, so a client that starts with an HTTP request
     /// line ("GET", "POST") gets the web interface (HttpApi) instead of video.
+    /// At most 4 video viewers (2 per Wi-Fi address) and 8 web requests at a time, each for USB and for Wi-Fi.
     /// </summary>
     internal sealed class StreamServer
     {
@@ -48,6 +49,25 @@ namespace W10MWebCam.Streaming
         /// <summary>If the oldest unsent video for a viewer is older than this, skip to the next keyframe.</summary>
         public double MaxBacklogSeconds = 1.5;
 
+        // Limits, counted separately for the USB cable and for Wi-Fi, so a busy network never locks the PC out over USB.
+        private const int MaxViewers = 4;                         // video viewers
+        private const int MaxViewersPerAddress = 2;               // video viewers from one Wi-Fi address
+        private const int MaxHttp = 8;                            // web requests answered at once
+        private const int MaxConnections = MaxViewers + MaxHttp;  // accepted before it is known what they are
+        private readonly object _limitLogLock = new object();
+        private DateTime _lastLimitLog = DateTime.MinValue;
+
+        /// <summary>At most one line per 10 s: a client that keeps reconnecting must not flood the log.</summary>
+        private void LogLimited(string m)
+        {
+            lock (_limitLogLock)
+            {
+                if ((DateTime.UtcNow - _lastLimitLog).TotalSeconds < 10) return;
+                _lastLimitLog = DateTime.UtcNow;
+            }
+            Log(m);
+        }
+
         public StreamServer(params int[] ports) { _ports = ports; }
 
         /// <summary>Viewers currently receiving video (web requests and viewers still waiting for a keyframe don't count).</summary>
@@ -80,11 +100,25 @@ namespace W10MWebCam.Streaming
 
         private void OnConnection(StreamSocketListener sender, StreamSocketListenerConnectionReceivedEventArgs args)
         {
-            var c = new Client(args.Socket, Log);
             string address = args.Socket.Information.RemoteAddress?.DisplayName ?? "?";
-            c.Who = address == "127.0.0.1" ? "PC over USB" : address + " over Wi-Fi";
-            c.FromUsb = address == "127.0.0.1";
-            lock (_lock) _clients.Add(c);
+            bool fromUsb = address == "127.0.0.1";
+            Client c;
+            lock (_lock)
+            {
+                int open = 0;
+                foreach (var x in _clients) if (x.FromUsb == fromUsb && !x.IsClosed) open++;
+                if (open >= MaxConnections)
+                {
+                    try { args.Socket.Dispose(); } catch { }
+                    c = null;
+                }
+                else
+                {
+                    c = new Client(args.Socket, Log) { Who = fromUsb ? "PC over USB" : address + " over Wi-Fi", FromUsb = fromUsb, Address = address };
+                    _clients.Add(c);
+                }
+            }
+            if (c == null) { LogLimited("Too many connections - refused one from " + address); return; }
             // Nothing is logged yet: the settings page polls over this port every few seconds, and those requests
             // would flood the log. A viewer is logged when its video starts flowing (see Broadcast).
             var _ = c.RunAsync(() =>
@@ -120,6 +154,14 @@ namespace W10MWebCam.Streaming
                 if (HttpApi.LooksLikeHttp(data) && Http != null)
                 {
                     c.MarkHttp(); // no video for this client from now on
+                    int busy = 0;
+                    lock (_lock) foreach (var x in _clients) if (x.IsHttp && !x.IsClosed && x.FromUsb == c.FromUsb) busy++;
+                    if (busy > MaxHttp)
+                    {
+                        LogLimited("Too many web requests at once - refused one from " + c.Who);
+                        c.SendFinal(HttpApi.Reply(503, "Service Unavailable", "text/plain", "Busy, try again\n"));
+                        return;
+                    }
                     var request = await HttpApi.ReadAsync(socket.InputStream, data, c.FromUsb, socket.Information.RemoteAddress?.DisplayName);
                     if (request == null) { c.Close(); return; }
                     c.SendFinal(await Http.HandleAsync(request));
@@ -136,7 +178,7 @@ namespace W10MWebCam.Streaming
 
             bool firstSliceOfIdr = type == 5 && nal.Length > 1 && (nal[1] & 0x80) != 0;
             byte[] packet = null;
-            List<Client> dead = null;
+            List<Client> dead = null, refused = null;
 
             lock (_lock)
             {
@@ -155,6 +197,7 @@ namespace W10MWebCam.Streaming
                     {
                         if (firstSliceOfIdr && _sps != null && _pps != null)
                         {
+                            if (!c.Synced && TooManyViewers(c)) { (refused ?? (refused = new List<Client>())).Add(c); continue; }
                             c.Enqueue(WithStartCode(_sps));
                             c.Enqueue(WithStartCode(_pps));
                             c.Enqueue(packet);
@@ -180,6 +223,25 @@ namespace W10MWebCam.Streaming
                     Log("Viewer not responding - disconnecting it");
                     c.Close();
                 }
+            if (refused != null)
+                foreach (var c in refused)
+                {
+                    LogLimited("Too many viewers (" + MaxViewers + ", " + MaxViewersPerAddress + " per Wi-Fi address) - refused " + c.Who);
+                    c.Close();
+                }
+        }
+
+        /// <summary>A new viewer would go over the limits (called under _lock, just before its video would start).</summary>
+        private bool TooManyViewers(Client c)
+        {
+            int all = 0, same = 0;
+            foreach (var x in _clients)
+            {
+                if (!x.Synced || x.IsClosed || x.IsHttp || x.FromUsb != c.FromUsb) continue;
+                all++;
+                if (x.Address == c.Address) same++;
+            }
+            return all >= MaxViewers || (!c.FromUsb && same >= MaxViewersPerAddress);
         }
 
         private static byte[] WithStartCode(byte[] nal)
@@ -207,6 +269,7 @@ namespace W10MWebCam.Streaming
             /// <summary>Video has started flowing to this viewer at least once.</summary>
             public volatile bool Synced;
             public string Who = "?";
+            public string Address = "?";
             public bool FromUsb;
             private volatile bool _closeWhenDrained;
 

@@ -308,7 +308,7 @@ namespace W10MWebCam
                     _startedAt = DateTime.Now;
                     // The preview only changes while no recording runs (changing it mid-recording stalls the 4K pipeline):
                     // decide it now, before recording starts.
-                    await _camera.SetPreviewAsync(PreviewToggle.IsOn && !PowerSaveToggle.IsOn);
+                    await _camera.SetPreviewAsync(PreviewWanted);
                     _tuning.ApplyPower(_camera.Capture); // stabilization: also only while stopped
                     _tuning.FrameLimitMs = 1000.0 / Math.Max(1, video.Item1.Fps);
                     await _camera.StartStreamingAsync(video.Item1, video.Item2);
@@ -323,7 +323,7 @@ namespace W10MWebCam
                     await _camera.StopStreamingAsync();
                     ClearStartFlag();
                     StopUi();
-                    await _camera.SetPreviewAsync(PreviewToggle.IsOn);
+                    await _camera.SetPreviewAsync(IdlePreviewWanted);
                     await ApplyBlackoutAsync();
                 }
             }
@@ -368,7 +368,7 @@ namespace W10MWebCam
             try
             {
                 if (_brightness == null) _brightness = BrightnessOverride.GetForCurrentView();
-                if (want)
+                if (want && !_phoneAdjusting) // while adjusting the camera on the phone the screen stays lit (MainPage.Adjust.cs)
                 {
                     if (_brightness.IsSupported)
                     {
@@ -393,7 +393,7 @@ namespace W10MWebCam
         {
             bool previewing = _camera != null && _camera.Previewing;
             PreviewOffText.Text = _camera != null && _camera.IsStreaming
-                ? (previewing ? "" : "Streaming - preview off" + (PowerSaveToggle.IsOn ? " (blackout mode)" : " (it starts with the next stream start)"))
+                ? (previewing ? "" : _phoneAdjusting ? "Starting the camera picture..." : "Streaming - preview off" + (PowerSaveToggle.IsOn ? " (blackout mode)" : " (it starts with the next stream start)"))
                 : "Preview off";
             PreviewOffText.Visibility = previewing ? Visibility.Collapsed : Visibility.Visible;
         }
@@ -410,7 +410,7 @@ namespace W10MWebCam
         private void WakeTimer_Tick(object sender, object e)
         {
             _wakeTimer.Stop();
-            if (!_blackedOut || UnplugPanel.Visibility == Visibility.Visible) return;
+            if (!_blackedOut || _phoneAdjusting || UnplugPanel.Visibility == Visibility.Visible) return;
             BlackoutOverlay.Visibility = Visibility.Visible;
             if (_brightness != null && _brightness.IsSupported)
             {
@@ -438,7 +438,7 @@ namespace W10MWebCam
             _settings.Values["Preview"] = PreviewToggle.IsOn;
             if (_camera == null) return;
             if (_camera.IsStreaming) Log("Preview " + (PreviewToggle.IsOn ? "on" : "off") + " applies when the stream is stopped or restarted");
-            else await _camera.SetPreviewAsync(PreviewToggle.IsOn);
+            else await _camera.SetPreviewAsync(IdlePreviewWanted);
             UpdatePreviewNote();
         }
 
@@ -492,6 +492,7 @@ namespace W10MWebCam
             try
             {
                 MarkLaunchHealthy(); // a clean suspend is not a failed launch
+                EndPhoneAdjust();
                 _statsTimer.Stop();
                 TorchOff();
                 if (_camera != null) await _camera.ShutdownAsync();

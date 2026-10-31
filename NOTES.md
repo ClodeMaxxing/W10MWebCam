@@ -22,6 +22,7 @@ W10MWebCam/                      C# UWP app (.NET Native, ARM), SDK 10.0.19041, 
   MainPage.Camera.cs             focus / exposure / white balance, focus once, flashlight, camera power saving
   MainPage.Power.cs              power readout, charger notice, heat detection + optional step-down, stop on power loss
   MainPage.Web.cs                /status and /settings/state JSON, applying /settings/set through the phone's controls
+  MainPage.Adjust.cs             adjusting on the phone: picture on (one stream restart) until 60 s after the last touch
   MainPage.Status.cs             status card (tiles, badges, meters), folding sections, cached brushes (theme from W10MDashcam)
   Streaming/CameraEngine.cs      MediaCapture setup, format list, encoder profile, engine selection, frame handler
   Streaming/CameraTuning.cs      camera controls (ported from W10MSecurityCam)
@@ -140,7 +141,9 @@ CameraEngine.OnNal ─► StreamServer.Broadcast ─► each viewer: SPS+PPS, wa
 1. Subscribing `CameraStreamStateChanged` before `InitializeAsync` crashed at startup → subscribe after.
 2. **The preview only changes while the stream is stopped.** Starting or stopping it during a 4K recording stalls the
    pipeline and can end the app. `CameraEngine.SetPreviewAsync` refuses while streaming; the start sequence decides the
-   preview first; blackout only changes the overlay and brightness; the Preview switch applies at the next stop/start.
+   preview first; blackout only changes the overlay and brightness; the Preview switch applies at the next stop/start;
+   adjusting the camera on the phone (MainPage.Adjust.cs) restarts the stream once to show the picture and once, 60 s
+   after the last touch, to end it (the same approach as W10MDashcam).
    Also: don't spin the preview up at launch when auto-start + blackout will turn it off; wait 2 s after init before
    auto-starting.
 3. Work on the Media Foundation callback thread stalled 4K → copy and hand off to a worker thread.

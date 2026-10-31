@@ -91,6 +91,9 @@
     <Compile Include="MainPage.Power.cs">
       <DependentUpon>MainPage.xaml</DependentUpon>
     </Compile>
+    <Compile Include="MainPage.Adjust.cs">
+      <DependentUpon>MainPage.xaml</DependentUpon>
+    </Compile>
     <Compile Include="MainPage.Status.cs">
       <DependentUpon>MainPage.xaml</DependentUpon>
     </Compile>

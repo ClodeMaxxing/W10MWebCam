@@ -76,7 +76,7 @@ On the phone and on the settings page:
 | Blackout screen while streaming | Black OLED screen and minimum brightness. Saves battery and lets the phone charge | On |
 | Start streaming when app opens | Auto-start | On |
 | Preview on phone | Live picture on the phone. Changes take effect while the stream is stopped (changing the preview during a 4K recording can stall it) | Your choice |
-| Automatic focus, exposure, white balance | Off = hold the current values; the sliders for each are on the settings page | On |
+| Automatic focus, exposure, white balance | Off shows a slider and Auto / Manual switch for each, and the camera picture on the phone until 60 s after the last touch (while streaming, starting and ending the picture restart the stream once each) | On |
 | Focus once and lock | Focuses once and keeps the lens there (good for a fixed scene) | |
 | Flashlight | Only while streaming; switches off after 30 s because the LED heats the phone and cannot be dimmed | |
 | Stabilization off | For a fixed mount: less processing and heat. Restarts the stream once | Off |

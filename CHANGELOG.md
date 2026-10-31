@@ -36,6 +36,10 @@ Renamed from LumiaCam, and the improvements from its forks (W10MSecurityCam 1.1,
 - **Manual camera sliders on the phone** (as in W10MDashcam): switching off "Automatic focus, exposure and white balance"
   shows a slider and an Auto / Manual switch for each, starting from what the camera is using; all three back on Auto
   hides them again.
+- **Picture while adjusting:** unticking automatic (or touching a manual control) on the phone lifts the black screen and
+  shows the camera picture; 60 s after the last touch the picture ends and the screen goes black again. While streaming,
+  starting and ending the picture each restart the stream once (the preview can't change during a 4K recording); OBS
+  reconnects by itself. Changes on the PC settings page never do this.
 - Switching focus to manual starts from the last sensible lens position: the 950's autofocus sometimes reports the near
   end stop (0) while the picture is sharp, which made the manual picture jump out of focus.
 - 6 Mbps added to the bitrate list.

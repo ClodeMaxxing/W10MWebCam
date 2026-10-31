@@ -134,6 +134,8 @@ namespace W10MWebCam
         private async void CameraAutoToggle_Toggled(object sender, RoutedEventArgs e)
         {
             if (_loading) return;
+            // Unticking automatic shows the camera picture on the phone for adjusting (MainPage.Adjust.cs).
+            if (!CameraAutoToggle.IsOn) TouchPhoneAdjust(); else KeepAdjusting();
             // Switching the main switch off makes all three manual, starting from what the camera is using right now.
             if (!CameraAutoToggle.IsOn) _tuning.SeedFromCamera(_camera?.Capture, _tuning.FocusAuto, _tuning.ExposureAuto, _tuning.WbAuto);
             _tuning.ReleaseFocusHold();
@@ -144,6 +146,7 @@ namespace W10MWebCam
         private async void SubAuto_Toggled(object sender, RoutedEventArgs e)
         {
             if (_loading) return;
+            TouchPhoneAdjust();
             bool on = ((ToggleSwitch)sender).IsOn;
             if (!on) _tuning.SeedFromCamera(_camera?.Capture, sender == FocusAutoToggle, sender == ExposureAutoToggle, sender == WbAutoToggle);
             if (sender == FocusAutoToggle) { _tuning.FocusAuto = on; _tuning.ReleaseFocusHold(); }
@@ -156,6 +159,7 @@ namespace W10MWebCam
         {
             if (_loading || FocusLabel == null) return;
             _sliderTouchedAt = DateTime.Now;
+            TouchPhoneAdjust();
             if (sender == FocusSlider) _tuning.FocusPercent = FocusSlider.Value;
             else if (sender == ExposureSlider) _tuning.ExposureMs = _tuning.SnapExposureMs(SliderToExposure(ExposureSlider.Value));
             else if (sender == WbSlider) _tuning.WhiteBalanceKelvin = (uint)(Math.Round(WbSlider.Value / 100.0) * 100);
@@ -168,7 +172,7 @@ namespace W10MWebCam
             _tuningTimer.Stop(); _tuningTimer.Start(); // apply once the slider stops moving
         }
 
-        private async void FocusOnceButton_Click(object sender, RoutedEventArgs e) => await FocusOnceAsync();
+        private async void FocusOnceButton_Click(object sender, RoutedEventArgs e) { TouchPhoneAdjust(); await FocusOnceAsync(); }
 
         private async Task<string> FocusOnceAsync()
         {

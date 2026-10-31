@@ -120,7 +120,7 @@ namespace W10MWebCam.Streaming
                 if (HttpApi.LooksLikeHttp(data) && Http != null)
                 {
                     c.MarkHttp(); // no video for this client from now on
-                    var request = await HttpApi.ReadAsync(socket.InputStream, data, c.FromUsb);
+                    var request = await HttpApi.ReadAsync(socket.InputStream, data, c.FromUsb, socket.Information.RemoteAddress?.DisplayName);
                     if (request == null) { c.Close(); return; }
                     c.SendFinal(await Http.HandleAsync(request));
                 }

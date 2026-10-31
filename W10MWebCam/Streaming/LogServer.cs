@@ -34,7 +34,7 @@ namespace W10MWebCam.Streaming
                 using (var socket = args.Socket)
                 {
                     bool fromUsb = socket.Information.RemoteAddress?.DisplayName == "127.0.0.1";
-                    var request = await HttpApi.ReadAsync(socket.InputStream, null, fromUsb);
+                    var request = await HttpApi.ReadAsync(socket.InputStream, null, fromUsb, socket.Information.RemoteAddress?.DisplayName);
                     if (request == null) return;
                     byte[] reply = await _api.HandleAsync(request);
                     await socket.OutputStream.WriteAsync(reply.AsBuffer());

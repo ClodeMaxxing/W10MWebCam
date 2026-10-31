@@ -84,8 +84,8 @@ namespace W10MWebCam
             user = (user ?? "").Trim();
             if (user.Length > 0 && !System.Text.RegularExpressions.Regex.IsMatch(user, @"^[A-Za-z0-9._-]{1,32}$"))
                 return "Not changed: the user name may use letters, digits . _ - (1-32 characters)";
-            if (!string.IsNullOrEmpty(password) && (password.Length < 4 || password.Length > 64 || password.Any(ch => ch < ' ')))
-                return "Not changed: the password needs 4-64 characters";
+            if (!string.IsNullOrEmpty(password) && (password.Length < Streaming.WebLogin.MinPasswordLength || password.Length > 64 || password.Any(ch => ch < ' ')))
+                return "Not changed: the password needs " + Streaming.WebLogin.MinPasswordLength + "-64 characters";
             try { _http.Login.Save(user, password); }
             catch (Exception ex) { Log("Login: " + ex.Message); return "Login not saved: " + ex.Message; }
             PassBox.Password = "";

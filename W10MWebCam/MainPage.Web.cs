@@ -23,6 +23,7 @@ namespace W10MWebCam
             _http.ApplySettings = form => OnUiAsync(() => ApplySettingsAsync(form));
             _http.GetStatsRows = StatsRows;
             _http.GetPhoneAddress = () => _wifiAddress;
+            _http.Login.Log = Log;
             try { _http.Login.Load(); } catch (Exception ex) { Log("Login: " + ex.Message); }
         }
 

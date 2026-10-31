@@ -279,7 +279,7 @@ $('loginb').onclick=function(){location.href='/login'};
 $('toviewer').onclick=function(e){e.preventDefault();var h=$('viewer');if(h.nextSibling&&h.nextSibling.style&&h.nextSibling.style.display==='none')h.click();h.scrollIntoView({behavior:'smooth'})};
 $('lb').onclick=function(){var u=$('lu').value.trim(),p=$('lp').value;
  if(p!==$('lp2').value){$('msg').textContent='The two passwords differ';return}
- if(p.length<4){$('msg').textContent='The password needs at least 4 characters';return}
+ if(p.length<8){$('msg').textContent='The password needs at least 8 characters';return}
  $('lp').value=$('lp2').value='';send('user='+encodeURIComponent(u||'admin')+'&password='+encodeURIComponent(p))};
 $('lrm').onclick=function(){$('lp').value=$('lp2').value='';send('password=','Resetting the login...')};
 $('wifivideo').onchange=function(){send('wifivideo='+onoff(this.checked),this.checked?'':'Switching off video over Wi-Fi...')};

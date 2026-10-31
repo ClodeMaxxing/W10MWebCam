@@ -16,6 +16,10 @@ namespace W10MWebCam.Streaming
         public string Body = "";
         /// <summary>True when the request came over the USB cable (Microsoft's IP-over-USB shows up as 127.0.0.1).</summary>
         public bool FromUsb;
+        /// <summary>The target as sent on the request line (the Digest response must name it).</summary>
+        public string Target = "/";
+        /// <summary>The client's IP address (wrong logins are counted per address).</summary>
+        public string RemoteIp;
     }
 
     /// <summary>
@@ -68,15 +72,26 @@ namespace W10MWebCam.Streaming
                     return Reply(200, "OK", "application/json", await GetStatusJson(), "Cache-Control: no-store\r\n");
                 if (path == "" || path == "/settings" || path == "/camera")
                     return Reply(200, "OK", "text/html; charset=utf-8", WebPage.Html, "Cache-Control: no-store\r\n");
+                // The login is checked at most once per request (with qop each nonce count may only be used once).
+                string authorization = Header(r, "Authorization");
+                if ((authorization != null || path == "/login" || path == "/settings/set") && Login.IsLockedOut(r.RemoteIp))
+                    return Reply(429, "Too Many Requests", "text/plain", "Too many wrong logins - try again in 30 seconds\n", "Retry-After: 30\r\n");
                 if (path == "/settings/state")
-                    return Reply(200, "OK", "application/json", WithAccess(await GetSettingsJson(), r, CanWrite(r), null), "Cache-Control: no-store\r\n");
+                {
+                    // View only without a login. A login the browser sends must be right, though: a wrong or outdated one
+                    // gets a 401, so the browser renews the nonce (stale) or asks again instead of resending it forever.
+                    bool canWrite = false, stale = false;
+                    if (authorization != null && !(canWrite = Login.Check(r.Method, r.Target, authorization, r.RemoteIp, out stale)))
+                        return Reply(401, "Unauthorized", "text/plain", "Login needed\n", Login.Challenge(stale));
+                    return Reply(200, "OK", "application/json", WithAccess(await GetSettingsJson(), r, canWrite, null), "Cache-Control: no-store\r\n");
+                }
                 if (path == "/login")
                 {
-                    // Already logged in: straight back to the page.
-                    if (CanWrite(r)) return Reply(302, "Found", "text/plain", "", "Location: /settings\r\n");
                     if (!Login.Enabled)
                         return Reply(403, "Forbidden", "text/plain", "No login is set. Set one on the phone (W10MWebCam > Network > Login) to change settings.\n");
-                    Login.Check(r.Method, Header(r, "Authorization"), out bool stale);
+                    // Already logged in: straight back to the page.
+                    if (Login.Check(r.Method, r.Target, authorization, r.RemoteIp, out bool stale))
+                        return Reply(302, "Found", "text/plain", "", "Location: /settings\r\n");
                     return Reply(401, "Unauthorized", "text/html; charset=utf-8",
                         "<!doctype html><meta http-equiv='refresh' content='0;url=/settings'><p>Login needed. <a href='/login'>Try again</a></p>\n",
                         Login.Challenge(stale));
@@ -93,7 +108,7 @@ namespace W10MWebCam.Streaming
                     // reach the USB port, so being on USB proves nothing.
                     if (!Login.Enabled)
                         return Reply(403, "Forbidden", "text/plain", "View only: set a login on the phone (Network > Login)\n");
-                    if (!Login.Check(r.Method, Header(r, "Authorization"), out bool stale))
+                    if (!Login.Check(r.Method, r.Target, authorization, r.RemoteIp, out bool stale))
                         return Reply(401, "Unauthorized", "text/plain", "Login needed\n", Login.Challenge(stale));
                     var form = ParseForm(r.Body.Length > 0 ? r.Body : r.Query);
                     form["_via"] = r.FromUsb ? "USB" : "Wi-Fi";
@@ -107,10 +122,6 @@ namespace W10MWebCam.Streaming
                 return Reply(500, "Internal Server Error", "text/plain", ex.Message + "\n");
             }
         }
-
-        /// <summary>With a login set and the browser sending it (over USB and Wi-Fi alike).</summary>
-        private bool CanWrite(HttpRequest r) =>
-            Login.Enabled && Login.Check(r.Method, Header(r, "Authorization"), out bool _);
 
         /// <summary>The Host header names the phone: 127.0.0.1 / localhost over USB, the phone's Wi-Fi address otherwise.</summary>
         private bool HostIsPhone(string host, bool fromUsb)
@@ -167,7 +178,7 @@ namespace W10MWebCam.Streaming
         /// before (the stream server peeks at the first bytes to tell viewers and web requests apart).
         /// Returns null for an incomplete or oversized request.
         /// </summary>
-        public static async Task<HttpRequest> ReadAsync(IInputStream input, byte[] already, bool fromUsb)
+        public static async Task<HttpRequest> ReadAsync(IInputStream input, byte[] already, bool fromUsb, string remoteIp)
         {
             var data = new List<byte>(already ?? new byte[0]);
             int headerEnd = -1, bodyLen = 0;
@@ -201,7 +212,7 @@ namespace W10MWebCam.Streaming
                 if (colon > 0) headers[lines[i].Substring(0, colon).Trim()] = lines[i].Substring(colon + 1).Trim();
             }
             string body = Encoding.UTF8.GetString(bytes, headerEnd + 4, bodyLen);
-            return Parse(lines[0], headers, body, fromUsb);
+            return Parse(lines[0], headers, body, fromUsb, remoteIp);
         }
 
         private static int IndexOfBlankLine(List<byte> d)
@@ -212,10 +223,11 @@ namespace W10MWebCam.Streaming
         }
 
         /// <summary>Parses "GET /path?query HTTP/1.1" plus headers into a request.</summary>
-        public static HttpRequest Parse(string requestLine, Dictionary<string, string> headers, string body, bool fromUsb)
+        public static HttpRequest Parse(string requestLine, Dictionary<string, string> headers, string body, bool fromUsb, string remoteIp)
         {
             var parts = requestLine.Split(' ');
             string target = parts.Length > 1 ? parts[1] : "/";
+            string original = target;
             int scheme = target.IndexOf("://", StringComparison.Ordinal); // absolute form (http://host:port/path) -> path
             if (scheme >= 0)
             {
@@ -230,7 +242,9 @@ namespace W10MWebCam.Streaming
                 Query = q < 0 ? "" : target.Substring(q + 1),
                 Headers = headers,
                 Body = body ?? "",
-                FromUsb = fromUsb
+                FromUsb = fromUsb,
+                Target = original,
+                RemoteIp = remoteIp
             };
         }
 

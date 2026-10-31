@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.1 (package 1.1.0.15)
+
+- **Settings changes need the login over the USB cable too.** Any program or web page on the PC the phone is plugged
+  into can reach the USB port, so being on USB proves nothing. The page asks for the login before the first change
+  (default admin / admin until you change it on the phone). The video stream and the read-only pages are unchanged.
+- Page and phone help texts no longer say USB can always change settings.
+
 ## 1.1 — W10MWebCam (first public release)
 
 Renamed from LumiaCam, and the improvements from its forks (W10MSecurityCam 1.1, W10MDashcam 0.7.6) brought back.

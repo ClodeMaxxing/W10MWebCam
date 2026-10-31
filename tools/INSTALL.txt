@@ -23,6 +23,8 @@ The zip holds:
 
 3. Open W10MWebCam on the phone. With the USB cable and Microsoft's IP over USB service on the PC, point an OBS
    Media Source at tcp://127.0.0.1:8020 (Input Format h264) and open http://127.0.0.1:8020/settings for the settings.
+   Changes on the settings page need the login, over the USB cable too (first login admin / admin: change it on
+   the phone under Network > Login).
    See README.md on the project page for the OBS settings and troubleshooting:
    https://github.com/ClodeMaxxing/W10MWebCam
 

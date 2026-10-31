@@ -131,6 +131,8 @@ namespace W10MWebCam
                 if (_settings.Values["LaunchInProgress"] is bool lip && lip) fails++; else fails = 0;
                 if (fails >= 2)
                 {
+                    // Every default is the safe choice (Video over Wi-Fi is off and is asked again), so clearing never
+                    // opens the camera to the network. The login lives in the password vault and is kept.
                     _settings.Values.Clear();
                     fails = 0;
                     _selfCheckReset = true;
@@ -219,6 +221,7 @@ namespace W10MWebCam
                 StartButton.IsEnabled = formats.Count > 0;
                 _statsTimer.Start();
                 Log("Ready.");
+                if (!resumeStreaming) { var _ = AskWifiVideoOnceAsync(); }
 
                 if (crashedLastTime)
                 {

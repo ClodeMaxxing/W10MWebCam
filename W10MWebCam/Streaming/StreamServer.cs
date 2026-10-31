@@ -32,7 +32,7 @@ namespace W10MWebCam.Streaming
         /// Video for viewers that are not on the USB cable (any other address, on either port). The raw stream has no login,
         /// so with this on anyone on the network can watch. Off: such viewers are disconnected; USB is unaffected.
         /// </summary>
-        public volatile bool WifiVideoEnabled = true;
+        public volatile bool WifiVideoEnabled;
 
         /// <summary>Disconnects every video viewer that is not on the USB cable (called when Wi-Fi video is switched off).</summary>
         public void CloseWifiViewers()

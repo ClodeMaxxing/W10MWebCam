@@ -59,9 +59,9 @@ The phone's main screen shows just the two addresses you need, grouped: **USB ca
 (video, settings). The Network section lists every page's USB and Wi-Fi address under its switch.
 
 **Network switches** (phone: *Network* section; the settings page shows each one's real state as ON / OFF).
-**Video over Wi-Fi** (on): the video for any viewer not on the USB cable. The raw stream has **no login** (OBS and VLC
-can't send one), so while it is on anyone on your network can watch; the app shows an "unauthenticated network video"
-warning. Switch it off if you only use the USB cable. **Web page (settings and status)** (on): the settings page and
+**Video over Wi-Fi** (off; since 1.2 the phone asks once whether to turn it on): the video for any viewer not on the
+USB cable. The raw stream has **no login** (OBS and VLC can't send one), so while it is on anyone on your network can
+watch; the app shows an "unauthenticated network video" warning. Leave it off if you only use the USB cable. **Web page (settings and status)** (on): the settings page and
 `/status`; switched off, only the video is served, and only the phone can switch it back on. **Log page (/log)** and
 **Stats page (/stats)** (both off): switch
 them on when you want them, on the phone or on the settings page. The stats page keeps a sample every 30 s, only while

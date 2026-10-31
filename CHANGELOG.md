@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2 (package 1.2.0.0)
+
+- **Video over Wi-Fi is off by default.** The raw video has no login (OBS and VLC can't send one), so with it on anyone
+  on the network could watch. While no choice is saved (a new install, an update from a version that had it on by
+  default, or after the self-check reset), the phone asks once: *Keep it off* / *Turn it on*. The USB stream starts
+  meanwhile, so a phone used unattended still works. A choice made before is kept.
+- The startup self-check (two failed launches reset the settings) can no longer switch Video over Wi-Fi back on.
+
 ## 1.1.2 (package 1.1.0.16)
 
 - The phone and the settings page no longer say that changes over USB need no login, which 1.1.1 changed: the login

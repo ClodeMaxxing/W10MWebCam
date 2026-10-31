@@ -20,7 +20,8 @@ namespace W10MWebCam
             WebToggle.IsOn = GetBool("WebOn", true);
             LogToggle.IsOn = GetBool("LogOn", false);
             StatsToggle.IsOn = GetBool("StatsOn", false);
-            WifiVideoToggle.IsOn = GetBool("WifiVideoOn", true);
+            // Off until the owner says otherwise: the raw video has no login (see AskWifiVideoOnceAsync).
+            WifiVideoToggle.IsOn = GetBool("WifiVideoOn", false);
             if (CameraBox.Items.Count == 0) { CameraBox.Items.Add("Rear"); CameraBox.Items.Add("Front"); }
             CameraBox.SelectedIndex = _camera != null && _camera.UsingFrontCamera ? 1 : 0;
             ApplyNetworkSwitches();
@@ -92,6 +93,40 @@ namespace W10MWebCam
             Log(result);
             UpdateAddresses();
             return result;
+        }
+
+        /// <summary>
+        /// Asks once whether to send the video over Wi-Fi, while no choice is saved yet (a new install, an update from a
+        /// version that had it on by default, or after the self-check reset the settings). Not awaited by the caller: the
+        /// USB stream starts meanwhile, so a phone used unattended still works. Closing the dialog without a choice asks
+        /// again at the next start.
+        /// </summary>
+        private async Task AskWifiVideoOnceAsync()
+        {
+            if (_settings.Values["WifiVideoOn"] is bool) return;
+            var dialog = new ContentDialog
+            {
+                Title = "Video over Wi-Fi?",
+                Content = new TextBlock
+                {
+                    TextWrapping = TextWrapping.Wrap,
+                    Text = "The video over the USB cable always works. Video over Wi-Fi lets OBS, VLC or ffplay on another device " +
+                           "watch, but it has no login (they can't send one): anyone on this network could watch the camera.\n\n" +
+                           "You can change this later under Network > Video over Wi-Fi."
+                },
+                PrimaryButtonText = "Keep it off",
+                SecondaryButtonText = "Turn it on"
+            };
+            ContentDialogResult answer;
+            try { answer = await dialog.ShowAsync(); }
+            catch (Exception ex) { Log("Video over Wi-Fi question: " + ex.Message); return; }
+            if (_settings.Values["WifiVideoOn"] is bool) return; // already chosen meanwhile (settings page)
+            if (answer == ContentDialogResult.Secondary) WifiVideoToggle.IsOn = true; // Toggled saves, applies and logs it
+            else if (answer == ContentDialogResult.Primary)
+            {
+                _settings.Values["WifiVideoOn"] = false;
+                Log("Video over Wi-Fi off (USB only)");
+            }
         }
 
         private void WifiVideoToggle_Toggled(object sender, RoutedEventArgs e)

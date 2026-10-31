@@ -26,10 +26,10 @@ namespace W10MWebCam.Streaming
     ///   /log              the app log, plain text (tools\Get-Phone-Log.cmd) - only with the Log page switch on
     ///   /stats            graphs of the last 12 hours of status samples - only with the Stats page switch on
     ///   /settings/state   everything the page shows, as JSON
-    ///   /settings/set     POST: change settings - only over the USB cable, only from the page itself
-    ///   /login            over Wi-Fi: asks the browser for the login, then back to /settings
-    /// Over USB (the PC the phone is plugged into) settings can always be changed. Over Wi-Fi the pages are view only until
-    /// a login is set on the phone; then changes need that login (HTTP Digest, the browser asks for it).
+    ///   /settings/set     POST: change settings - with the login, only from the page itself
+    ///   /login            asks the browser for the login, then back to /settings
+    /// The pages are view only until a login is set on the phone; then changes need that login (HTTP Digest, the browser
+    /// asks for it), over USB and Wi-Fi alike.
     /// The phone's Network section switches the whole web interface (on by default), the log page and the stats page
     /// (both off by default). The video on the same ports is not affected.
     /// Adapted from W10MSecurityCam's HttpApi (its RTSP sniffing and login are not needed here).
@@ -72,10 +72,10 @@ namespace W10MWebCam.Streaming
                     return Reply(200, "OK", "application/json", WithAccess(await GetSettingsJson(), r, CanWrite(r), null), "Cache-Control: no-store\r\n");
                 if (path == "/login")
                 {
-                    // Over USB, or already logged in: straight back to the page.
+                    // Already logged in: straight back to the page.
                     if (CanWrite(r)) return Reply(302, "Found", "text/plain", "", "Location: /settings\r\n");
                     if (!Login.Enabled)
-                        return Reply(403, "Forbidden", "text/plain", "No login is set. Set one on the phone (W10MWebCam > Network > Login) to change settings over Wi-Fi.\n");
+                        return Reply(403, "Forbidden", "text/plain", "No login is set. Set one on the phone (W10MWebCam > Network > Login) to change settings.\n");
                     Login.Check(r.Method, Header(r, "Authorization"), out bool stale);
                     return Reply(401, "Unauthorized", "text/html; charset=utf-8",
                         "<!doctype html><meta http-equiv='refresh' content='0;url=/settings'><p>Login needed. <a href='/login'>Try again</a></p>\n",
@@ -89,13 +89,12 @@ namespace W10MWebCam.Streaming
                     // so both checks together leave only this app's own page.
                     if (Header(r, "X-Requested-With") != ClientHeader || !HostIsPhone(Header(r, "Host"), r.FromUsb))
                         return Reply(403, "Forbidden", "text/plain", "Use the settings page (http://127.0.0.1:8020/settings over USB)\n");
-                    if (!r.FromUsb)
-                    {
-                        if (!Login.Enabled)
-                            return Reply(403, "Forbidden", "text/plain", "View only over Wi-Fi: set a login on the phone (Network > Login), or use the USB cable\n");
-                        if (!Login.Check(r.Method, Header(r, "Authorization"), out bool stale))
-                            return Reply(401, "Unauthorized", "text/plain", "Login needed\n", Login.Challenge(stale));
-                    }
+                    // The login is needed over USB too: any program or web page on the PC the phone is plugged into can
+                    // reach the USB port, so being on USB proves nothing.
+                    if (!Login.Enabled)
+                        return Reply(403, "Forbidden", "text/plain", "View only: set a login on the phone (Network > Login)\n");
+                    if (!Login.Check(r.Method, Header(r, "Authorization"), out bool stale))
+                        return Reply(401, "Unauthorized", "text/plain", "Login needed\n", Login.Challenge(stale));
                     var form = ParseForm(r.Body.Length > 0 ? r.Body : r.Query);
                     form["_via"] = r.FromUsb ? "USB" : "Wi-Fi";
                     string result = ApplySettings != null ? await ApplySettings(form) : "";
@@ -109,9 +108,9 @@ namespace W10MWebCam.Streaming
             }
         }
 
-        /// <summary>Over USB always; over Wi-Fi with a login set and the browser sending it.</summary>
+        /// <summary>With a login set and the browser sending it (over USB and Wi-Fi alike).</summary>
         private bool CanWrite(HttpRequest r) =>
-            r.FromUsb || (Login.Enabled && Login.Check(r.Method, Header(r, "Authorization"), out bool _));
+            Login.Enabled && Login.Check(r.Method, Header(r, "Authorization"), out bool _);
 
         /// <summary>The Host header names the phone: 127.0.0.1 / localhost over USB, the phone's Wi-Fi address otherwise.</summary>
         private bool HostIsPhone(string host, bool fromUsb)

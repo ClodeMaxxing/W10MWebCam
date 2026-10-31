@@ -1,8 +1,8 @@
 namespace W10MWebCam.Streaming
 {
     /// <summary>
-    /// The settings page (http://127.0.0.1:8020/settings over USB, http://PHONE-IP:5001/settings over Wi-Fi: view only, or
-    /// changes after logging in), in the green theme shared with W10MSecurityCam and W10MDashcam. Plain HTML and a little
+    /// The settings page (http://127.0.0.1:8020/settings over USB, http://PHONE-IP:5001/settings over Wi-Fi; changes
+    /// after logging in), in the green theme shared with W10MSecurityCam and W10MDashcam. Plain HTML and a little
     /// script; it polls /settings/state every 2 s and posts changes to /settings/set.
     /// The page source avoids double quotes so it can live in a C# verbatim string.
     /// </summary>
@@ -122,7 +122,7 @@ input.tx{background:#0d140f;color:#d6e8d9;border:1px solid #1f3a26;border-radius
 <div class='links' id='loglinks'></div></div>
 <div class='row'><label><input type='checkbox' id='statspage'> Stats page</label><span class='st' id='st-statspage'></span><span class='hint' id='h-statspage'></span><i class='tip' data-tip='Graphs of the last 12 hours (frame rate, bitrate, latency, battery, power, CPU, memory, heat). Samples every 30 s only while this is on. Off by default.'>i</i>
 <div class='links' id='statslinks'></div></div>
-<div class='row'><div class='head'><span>Login for changes over Wi-Fi<i class='tip' data-tip='Over the USB cable this page can always change settings. Over Wi-Fi it is view only until a login is set; then the browser asks for it. An empty password removes the login.'>i</i></span></div>
+<div class='row'><div class='head'><span>Login for changes<i class='tip' data-tip='Changes need this login, over the USB cable and over Wi-Fi: the browser asks for it before the first change. An empty password removes the login.'>i</i></span></div>
 <div class='sub' id='loginstate'></div>
 <div id='loginform'><input class='tx' id='lu' placeholder='User name' autocomplete='username'> <input class='tx' id='lp' type='password' placeholder='New password' autocomplete='new-password'> <input class='tx' id='lp2' type='password' placeholder='Repeat password' autocomplete='new-password'>
 <div class='btnrow'><button id='lb'>Save login</button><button id='lrm'>Reset to admin / admin</button></div></div></div>
@@ -163,7 +163,7 @@ function badge(t,c){return '<div class=\'badge '+(c||'')+'\'>'+esc(t)+'</div>'}
 function notice(t,bad,btn){return '<div class=\'notice'+(bad?' bad':'')+'\'><span class=\'ni\'>!</span><span>'+esc(t)+'</span>'+(btn||'')+'</div>'}
 function render(){
  if(!st)return;
- var w=st.canWrite||(st.loginSet&&!st.fromUsb); // with a login set, a change makes the browser ask for it
+ var w=st.canWrite||st.loginSet; // with a login set, a change makes the browser ask for it (over USB too)
  $('ro').style.display=st.canWrite?'none':'flex';
  $('rotext').innerHTML=st.loginSet?'Changes over Wi-Fi need the login (the browser asks for it'+(st.defaultLogin?'; default admin / admin':'')+').':'View only over Wi-Fi. To change settings from here, set a login on the phone (Network &gt; Login), or use <code>http://127.0.0.1:8020/settings</code> on the PC the phone is plugged into.';
  $('loginb').style.display=!st.canWrite&&st.loginSet?'inline-block':'none';

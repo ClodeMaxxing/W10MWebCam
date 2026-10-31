@@ -348,7 +348,7 @@
                     <Grid>
                         <ToggleSwitch x:Name="WebToggle" Header="Web page (settings and status)" IsOn="True" Toggled="WebToggle_Toggled" />
                         <Button Style="{StaticResource InfoButton}"><Button.Flyout><Flyout><TextBlock Style="{StaticResource InfoText}"
-                            Text="The settings page and /status. Over USB it can change settings; over Wi-Fi it is view only until a login is set below. Off: only the video is served (the video is never affected). Only the phone can switch it back on." /></Flyout></Button.Flyout></Button>
+                            Text="The settings page and /status. Changes need the login below, over USB and Wi-Fi alike. Off: only the video is served (the video is never affected). Only the phone can switch it back on." /></Flyout></Button.Flyout></Button>
                     </Grid>
                     <TextBlock x:Name="WebPageAddressText" Text="" Style="{StaticResource Note}" FontFamily="Consolas" IsTextSelectionEnabled="True" Margin="0,-6,0,6" />
                     <Grid>
@@ -367,7 +367,7 @@
                     <Grid Margin="0,6,0,0">
                         <TextBlock Text="LOGIN (CHANGES OVER WI-FI)" Style="{StaticResource TileLabel}" />
                         <Button Style="{StaticResource InfoButton}"><Button.Flyout><Flyout><TextBlock Style="{StaticResource InfoText}"
-                            Text="Over the USB cable the settings page can always change settings. Over Wi-Fi the browser asks for this login before the first change (or press Log in on the page). A new install uses admin / admin: change it. An empty password resets it to admin / admin. Kept in the Windows password vault." /></Flyout></Button.Flyout></Button>
+                            Text="The browser asks for this login before the first change, over the USB cable and over Wi-Fi (or press Log in on the page). A new install uses admin / admin: change it. An empty password resets it to admin / admin. Kept in the Windows password vault." /></Flyout></Button.Flyout></Button>
                     </Grid>
                     <TextBlock x:Name="LoginStatusText" Text="" Style="{StaticResource Note}" Margin="0,2,0,4" />
                     <TextBox x:Name="UserBox" PlaceholderText="User name (admin)" Margin="0,0,0,4" />

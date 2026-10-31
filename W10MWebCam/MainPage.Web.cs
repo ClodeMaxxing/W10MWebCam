@@ -136,6 +136,9 @@ namespace W10MWebCam
             o["logPort"] = Num(LogPort);
             o["logOn"] = Bool(LogToggle.IsOn);
             o["statsOn"] = Bool(StatsToggle.IsOn);
+            o["webOn"] = Bool(WebToggle.IsOn);
+            o["wifiVideoOn"] = Bool(WifiVideoToggle.IsOn);
+            o["defaultLogin"] = Bool(_http.Login.IsDefault);
             o["front"] = Bool(_camera != null && _camera.UsingFrontCamera);
             return o;
         }
@@ -173,6 +176,7 @@ namespace W10MWebCam
             // The web page itself can only be switched off on the phone (the page would cut itself off).
             if (f.TryGetValue("logpage", out v)) { LogToggle.IsOn = On(v); done.Add("log page " + (On(v) ? "on" : "off")); }
             if (f.TryGetValue("statspage", out v)) { StatsToggle.IsOn = On(v); done.Add("stats page " + (On(v) ? "on" : "off")); }
+            if (f.TryGetValue("wifivideo", out v)) { WifiVideoToggle.IsOn = On(v); done.Add("video over Wi-Fi " + (On(v) ? "on" : "off")); }
             if (f.TryGetValue("password", out v)) done.Add(SaveLogin(f.TryGetValue("user", out var lu) ? lu : _http.Login.UserName, v));
             // Video settings: changing a combo box restarts a running stream (Setting_Changed), as on the phone.
             if (f.TryGetValue("format", out v) && int.TryParse(v, out int fi) && fi >= 0 && fi < ResolutionBox.Items.Count && fi != ResolutionBox.SelectedIndex)

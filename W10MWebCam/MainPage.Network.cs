@@ -20,6 +20,7 @@ namespace W10MWebCam
             WebToggle.IsOn = GetBool("WebOn", true);
             LogToggle.IsOn = GetBool("LogOn", false);
             StatsToggle.IsOn = GetBool("StatsOn", false);
+            WifiVideoToggle.IsOn = GetBool("WifiVideoOn", true);
             if (CameraBox.Items.Count == 0) { CameraBox.Items.Add("Rear"); CameraBox.Items.Add("Front"); }
             CameraBox.SelectedIndex = _camera != null && _camera.UsingFrontCamera ? 1 : 0;
             ApplyNetworkSwitches();
@@ -30,6 +31,8 @@ namespace W10MWebCam
             _http.WebEnabled = WebToggle.IsOn;
             _http.LogEnabled = LogToggle.IsOn;
             _http.StatsEnabled = StatsToggle.IsOn;
+            _server.WifiVideoEnabled = WifiVideoToggle.IsOn;
+            WifiVideoWarning.Visibility = WifiVideoToggle.IsOn ? Visibility.Visible : Visibility.Collapsed;
             LogToggle.IsEnabled = StatsToggle.IsEnabled = WebToggle.IsOn;
             UpdateAddresses();
         }
@@ -43,10 +46,13 @@ namespace W10MWebCam
         /// </summary>
         private void UpdateAddresses()
         {
-            bool web = WebToggle.IsOn;
+            bool web = WebToggle.IsOn, wifiVideo = WifiVideoToggle.IsOn;
             UsbAddressText.Text = "Video     tcp://127.0.0.1:" + UsbPort + "\nSettings  " + (web ? UsbUrl("/settings") : "(web page off)");
             WifiAddressText.Text = _wifiAddress.Length == 0 ? "Not connected to Wi-Fi"
-                : "Video     tcp://" + _wifiAddress + ":" + WifiPort + "\nSettings  " + (web ? WifiUrl("/settings") + (_http.Login.Enabled ? "" : "  (view only)") : "(web page off)");
+                : "Video     " + (wifiVideo ? "tcp://" + _wifiAddress + ":" + WifiPort : "(off - Network)") +
+                  "\nSettings  " + (web ? WifiUrl("/settings") + "  (login)" : "(web page off)");
+            WifiVideoAddressText.Text = _wifiAddress.Length == 0 ? "Wi-Fi  (not connected)" : "Wi-Fi  tcp://" + _wifiAddress + ":" + WifiPort;
+            WifiVideoAddressText.Opacity = wifiVideo ? 1 : 0.4;
             WebPageAddressText.Text = "USB    " + UsbUrl("/settings") + "\n       " + UsbUrl("/status") +
                                       "\nWi-Fi  " + WifiUrl("/settings") + "\n       " + WifiUrl("/status");
             LogPageAddressText.Text = "USB    " + UsbUrl("/log") + "\nWi-Fi  " + WifiUrl("/log");
@@ -54,10 +60,11 @@ namespace W10MWebCam
             WebPageAddressText.Opacity = web ? 1 : 0.4;
             LogPageAddressText.Opacity = web && LogToggle.IsOn ? 1 : 0.4;
             StatsPageAddressText.Opacity = web && StatsToggle.IsOn ? 1 : 0.4;
-            LoginStatusText.Text = _http.Login.Enabled
-                ? "Login set (user \"" + _http.Login.UserName + "\"): settings can be changed over Wi-Fi after logging in."
-                : "No login: over Wi-Fi the settings page is view only. Over USB it can always change settings.";
-            if (_http.Login.Enabled && string.IsNullOrEmpty(UserBox.Text)) UserBox.Text = _http.Login.UserName;
+            LoginStatusText.Text = _http.Login.IsDefault
+                ? "Default login admin / admin: change it, or anyone on your network can change settings."
+                : "User \"" + _http.Login.UserName + "\": over Wi-Fi the browser asks for this login before changes.";
+            LoginNotice.Visibility = _http.Login.IsDefault && web ? Visibility.Visible : Visibility.Collapsed;
+            if (string.IsNullOrEmpty(UserBox.Text)) UserBox.Text = _http.Login.UserName;
         }
 
         private void SaveLoginButton_Click(object sender, RoutedEventArgs e) => SaveLogin(UserBox.Text, PassBox.Password);
@@ -73,10 +80,19 @@ namespace W10MWebCam
             try { _http.Login.Save(user, password); }
             catch (Exception ex) { Log("Login: " + ex.Message); return "Login not saved: " + ex.Message; }
             PassBox.Password = "";
-            string result = _http.Login.Enabled ? "Login set for \"" + _http.Login.UserName + "\": changes over Wi-Fi need it" : "Login removed: Wi-Fi is view only";
+            string result = _http.Login.IsDefault ? "Login reset to the default (admin / admin)" : "Login set for \"" + _http.Login.UserName + "\": changes over Wi-Fi need it";
             Log(result);
             UpdateAddresses();
             return result;
+        }
+
+        private void WifiVideoToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (_loading) return;
+            _settings.Values["WifiVideoOn"] = WifiVideoToggle.IsOn;
+            ApplyNetworkSwitches();
+            if (!WifiVideoToggle.IsOn) _server.CloseWifiViewers();
+            Log("Video over Wi-Fi " + (WifiVideoToggle.IsOn ? "on (no login: anyone on the network can watch)" : "off (USB only)"));
         }
 
         private void WebToggle_Toggled(object sender, RoutedEventArgs e)

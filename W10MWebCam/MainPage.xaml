@@ -224,6 +224,9 @@
                                         Visibility="Collapsed" Click="NormalModeButton_Click" Background="#3A1010" Foreground="#FFD0D0" BorderBrush="#A03030" />
                             </StackPanel>
                         </Border>
+                        <Border x:Name="LoginNotice" Visibility="Collapsed" BorderBrush="#7D6E2E" BorderThickness="3,1,1,1" CornerRadius="5" Background="#1A1808" Padding="8,5,8,5" Margin="0,6,0,0">
+                            <TextBlock Text="Default login admin / admin in use for changes over Wi-Fi. Change it under Network > Login." FontSize="11" Foreground="#E8D8A0" TextWrapping="Wrap" />
+                        </Border>
                         <Border x:Name="NoticeBox" Visibility="Collapsed" BorderBrush="#7D6E2E" BorderThickness="3,1,1,1" CornerRadius="5" Background="#1A1808" Padding="8,5,8,5" Margin="0,6,0,0">
                             <TextBlock x:Name="NoticeText" Text="" FontSize="11" Foreground="#E8D8A0" TextWrapping="Wrap" />
                         </Border>
@@ -334,6 +337,15 @@
                 <StackPanel x:Name="NetworkPanel" Visibility="Collapsed">
                     <!-- Each switch with the addresses it serves, USB first, then Wi-Fi. -->
                     <Grid>
+                        <ToggleSwitch x:Name="WifiVideoToggle" Header="Video over Wi-Fi" IsOn="True" Toggled="WifiVideoToggle_Toggled" />
+                        <Button Style="{StaticResource InfoButton}"><Button.Flyout><Flyout><TextBlock Style="{StaticResource InfoText}"
+                            Text="The video stream for viewers that are not on the USB cable. The stream has no login (OBS and VLC can't send one), so while this is on anyone on your network can watch the camera. Off: only the PC on the USB cable gets video." /></Flyout></Button.Flyout></Button>
+                    </Grid>
+                    <TextBlock x:Name="WifiVideoAddressText" Text="" Style="{StaticResource Note}" FontFamily="Consolas" IsTextSelectionEnabled="True" Margin="0,-6,0,2" />
+                    <Border x:Name="WifiVideoWarning" BorderBrush="#7D6E2E" BorderThickness="3,1,1,1" CornerRadius="5" Background="#1A1808" Padding="8,5,8,5" Margin="0,0,0,8">
+                        <TextBlock Text="Unauthenticated network video: anyone on this Wi-Fi can watch the camera. Switch off if you only use the USB cable." FontSize="11" Foreground="#E8D8A0" TextWrapping="Wrap" />
+                    </Border>
+                    <Grid>
                         <ToggleSwitch x:Name="WebToggle" Header="Web page (settings and status)" IsOn="True" Toggled="WebToggle_Toggled" />
                         <Button Style="{StaticResource InfoButton}"><Button.Flyout><Flyout><TextBlock Style="{StaticResource InfoText}"
                             Text="The settings page and /status. Over USB it can change settings; over Wi-Fi it is view only until a login is set below. Off: only the video is served (the video is never affected). Only the phone can switch it back on." /></Flyout></Button.Flyout></Button>
@@ -355,11 +367,11 @@
                     <Grid Margin="0,6,0,0">
                         <TextBlock Text="LOGIN (CHANGES OVER WI-FI)" Style="{StaticResource TileLabel}" />
                         <Button Style="{StaticResource InfoButton}"><Button.Flyout><Flyout><TextBlock Style="{StaticResource InfoText}"
-                            Text="Over the USB cable the settings page can always change settings. Over Wi-Fi it is view only until you set a login here; then the browser asks for it (Log in on the page). An empty password removes the login. Kept in the Windows password vault." /></Flyout></Button.Flyout></Button>
+                            Text="Over the USB cable the settings page can always change settings. Over Wi-Fi the browser asks for this login before the first change (or press Log in on the page). A new install uses admin / admin: change it. An empty password resets it to admin / admin. Kept in the Windows password vault." /></Flyout></Button.Flyout></Button>
                     </Grid>
                     <TextBlock x:Name="LoginStatusText" Text="" Style="{StaticResource Note}" Margin="0,2,0,4" />
                     <TextBox x:Name="UserBox" PlaceholderText="User name (admin)" Margin="0,0,0,4" />
-                    <PasswordBox x:Name="PassBox" PlaceholderText="New password (empty = remove the login)" Margin="0,0,0,4" />
+                    <PasswordBox x:Name="PassBox" PlaceholderText="New password (empty = admin / admin)" Margin="0,0,0,4" />
                     <Button x:Name="SaveLoginButton" Content="Save login" HorizontalAlignment="Stretch" Click="SaveLoginButton_Click" Margin="0,0,0,6" />
                 </StackPanel>
 

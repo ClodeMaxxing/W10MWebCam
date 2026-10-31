@@ -52,9 +52,12 @@ Renamed from LumiaCam, and the improvements from its forks (W10MSecurityCam 1.1,
 - **Front camera:** a Rear / Front choice (phone Video section and the settings page). Switching reopens the camera and
   restarts a running stream; each camera remembers its own resolution. The phone's preview of the front camera is mirrored;
   the stream is not.
-- **Login for changes over Wi-Fi** (optional, set on the phone under Network or on the settings page over USB): with a
-  login set, the settings page can change settings over Wi-Fi after the browser asks for it (HTTP Digest, as in
-  W10MSecurityCam). Without one, Wi-Fi stays view only. USB never needs it.
+- **Login for changes over Wi-Fi:** the settings page can change settings over Wi-Fi after the browser asks for the
+  login (HTTP Digest, as in W10MSecurityCam). Default admin / admin with a warning until it is changed (Network > Login).
+  USB never needs it.
+- **Video over Wi-Fi switch** (on by default) with an "unauthenticated network video" warning: the raw stream has no
+  login, so anyone on the network can watch while it is on. Off: only the PC on the USB cable gets video.
+- The settings page's Network section shows each switch's real state (ON / OFF), also when it can't change it.
 - **Clearer addresses:** the phone's main screen shows only the video and settings addresses, grouped USB cable / Wi-Fi;
   the Network section and the settings page list every page's USB and Wi-Fi address under its switch. The settings page
   has a Connect section with the same grouping, and VLC instructions (`:demux=h264`).

@@ -28,6 +28,21 @@ namespace W10MWebCam.Streaming
         /// <summary>Answers clients that send an HTTP request instead of watching the video.</summary>
         public HttpApi Http;
 
+        /// <summary>
+        /// Video for viewers that are not on the USB cable (any other address, on either port). The raw stream has no login,
+        /// so with this on anyone on the network can watch. Off: such viewers are disconnected; USB is unaffected.
+        /// </summary>
+        public volatile bool WifiVideoEnabled = true;
+
+        /// <summary>Disconnects every video viewer that is not on the USB cable (called when Wi-Fi video is switched off).</summary>
+        public void CloseWifiViewers()
+        {
+            List<Client> drop;
+            lock (_lock) drop = _clients.FindAll(c => !c.FromUsb && !c.IsHttp);
+            foreach (var c in drop) c.Close();
+            if (drop.Count > 0) Log("Video over Wi-Fi switched off: " + drop.Count + " Wi-Fi viewer(s) disconnected");
+        }
+
         /// <summary>Kept for compatibility; lag is now judged by time (see MaxBacklogSeconds).</summary>
         public long MaxQueueBytes = 4000000;
         /// <summary>If the oldest unsent video for a viewer is older than this, skip to the next keyframe.</summary>
@@ -78,6 +93,16 @@ namespace W10MWebCam.Streaming
                 if (c.Synced) Log("Viewer left: " + c.Who);
             });
             var __ = WatchInputAsync(c, args.Socket);
+            if (!c.FromUsb && !WifiVideoEnabled) { var ___ = RefuseWifiViewerAsync(c); }
+        }
+
+        /// <summary>Video over Wi-Fi is off: a client that hasn't asked for a web page within 2 s is a viewer, so close it.</summary>
+        private async Task RefuseWifiViewerAsync(Client c)
+        {
+            await Task.Delay(2000);
+            if (c.IsHttp || c.IsClosed) return;
+            Log("Video over Wi-Fi is off: refused a viewer from " + c.Who);
+            c.Close();
         }
 
         /// <summary>
@@ -120,6 +145,7 @@ namespace W10MWebCam.Streaming
                 foreach (var c in _clients)
                 {
                     if (c.IsClosed || c.IsHttp) continue;
+                    if (!c.FromUsb && !WifiVideoEnabled) continue; // being refused (RefuseWifiViewerAsync)
                     if (c.SecondsSinceLastSend > 6 && c.QueuedBytes > 0)
                     {
                         (dead ?? (dead = new List<Client>())).Add(c);

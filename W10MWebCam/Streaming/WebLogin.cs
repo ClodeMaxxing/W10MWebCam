@@ -9,10 +9,10 @@ using Windows.Security.Cryptography.Core;
 namespace W10MWebCam.Streaming
 {
     /// <summary>
-    /// The optional login for changing settings over Wi-Fi (ported from W10MSecurityCam's RTSP login). HTTP Digest
-    /// authentication (RFC 2617; browsers show their own login box). The user name and password are kept in the Windows
-    /// PasswordVault, not in app settings. Unlike W10MSecurityCam there is no factory login: until one is set on the phone
-    /// (or on the settings page over USB), the page is view only over Wi-Fi. An empty password removes the login.
+    /// The login for changing settings over Wi-Fi (ported from W10MSecurityCam's RTSP login). HTTP Digest authentication
+    /// (RFC 2617; browsers show their own login box). The user name and password are kept in the Windows PasswordVault,
+    /// not in app settings. As in W10MSecurityCam a fresh install uses admin / admin, with a warning on the phone and the
+    /// page until it is changed; an empty password resets it to that. USB never asks for it.
     /// </summary>
     internal sealed class WebLogin
     {
@@ -28,9 +28,12 @@ namespace W10MWebCam.Streaming
         private static readonly bool AllowBasic = false;
 
         public const string DefaultUser = "admin";
+        public const string DefaultPassword = "admin";
 
-        /// <summary>A login is set: settings can be changed over Wi-Fi after logging in.</summary>
+        /// <summary>A login is set (always, after Load): settings can be changed over Wi-Fi after logging in.</summary>
         public bool Enabled { get { lock (_lock) return !string.IsNullOrEmpty(_password); } }
+        /// <summary>True while the factory login (admin / admin) is in use.</summary>
+        public bool IsDefault { get { lock (_lock) return _user == DefaultUser && _password == DefaultPassword; } }
         public string UserName { get { lock (_lock) return _user ?? ""; } }
 
         public void Load()
@@ -46,16 +49,17 @@ namespace W10MWebCam.Streaming
                 }
             }
             catch { /* FindAllByResource throws when nothing is stored */ }
+            if (!Enabled) Save(DefaultUser, DefaultPassword); // first run: the factory login
         }
 
-        /// <summary>Sets the login. An empty password removes it (Wi-Fi is view only again).</summary>
+        /// <summary>Sets the login. An empty password resets it to the factory login (admin / admin).</summary>
         public void Save(string user, string password)
         {
             var vault = new PasswordVault();
             try { foreach (var c in vault.FindAllByResource(VaultResource).ToList()) vault.Remove(c); } catch { }
             user = (user ?? "").Trim();
             if (user.Length == 0) user = DefaultUser;
-            if (string.IsNullOrEmpty(password)) { lock (_lock) { _user = null; _password = null; } return; }
+            if (string.IsNullOrEmpty(password)) { user = DefaultUser; password = DefaultPassword; }
             vault.Add(new PasswordCredential(VaultResource, user, password));
             lock (_lock) { _user = user; _password = password; }
         }

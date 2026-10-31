@@ -86,6 +86,9 @@ CameraEngine.OnNal ─► StreamServer.Broadcast ─► each viewer: SPS+PPS, wa
   Port 5001 (`LogServer`) serves the same routes for Wi-Fi.
 - Viewers are logged only when their video starts flowing ("Viewer connected: PC over USB - video flowing"), so the
   page polling every 2 s does not flood the log. `ClientCount` counts synced viewers only.
+- **Video over Wi-Fi** (`StreamServer.WifiVideoEnabled`, on by default): judged by the remote address, not the port (a
+  Wi-Fi device can reach port 8020 too). Off: non-USB viewers are disconnected, and a new one is closed after 2 s unless
+  it sent an HTTP request (web pages on the video ports still work).
 - **Switches** (`HttpApi.WebEnabled / LogEnabled / StatsEnabled`, phone Network section): web page on by default; log
   and stats pages off (most people only use the app). Web off answers every web request with 403 (video unaffected)
   and can only be undone on the phone. `/` serves the settings page; the log moved to `/log` in 1.1.
@@ -93,7 +96,7 @@ CameraEngine.OnNal ─► StreamServer.Broadcast ─► each viewer: SPS+PPS, wa
   them inlined (`/*ROWS*/`). Columns match the comment in `MainPage.Network.cs.SampleStats`.
 - **Write protection:** `/settings/set` needs (1) the USB cable (remote address 127.0.0.1), or over Wi-Fi a login set on
   the phone and the browser sending it (HTTP Digest, `Streaming/WebLogin.cs`, ported from W10MSecurityCam's RTSP login;
-  kept in the PasswordVault; no factory login, so Wi-Fi is view only until one is set); (2) the header
+  kept in the PasswordVault; factory login admin / admin with a warning until changed, like W10MSecurityCam); (2) the header
   `X-Requested-With: W10MWebCam` (another website cannot add a custom header without a CORS grant, which is never
   given); (3) a `Host` naming the phone: 127.0.0.1/localhost over USB, the phone's Wi-Fi address over Wi-Fi (defeats
   DNS rebinding). `/login` makes the browser ask for the login. Over Wi-Fi with a login set the page enables its controls

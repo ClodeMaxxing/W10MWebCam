@@ -47,6 +47,7 @@ namespace W10MWebCam.Streaming
         public Func<string> GetStatsRows = () => "";
         public volatile bool WebEnabled = true, LogEnabled, StatsEnabled;
         public WebLogin Login = new WebLogin();
+        public Action<string> Log = _ => { };
         /// <summary>The phone's own Wi-Fi address (for the Host check on Wi-Fi changes).</summary>
         public Func<string> GetPhoneAddress = () => "";
         public Func<Task<string>> GetStatusJson = () => Task.FromResult("{}");
@@ -120,7 +121,8 @@ namespace W10MWebCam.Streaming
             }
             catch (Exception ex)
             {
-                return Reply(500, "Internal Server Error", "text/plain", ex.Message + "\n");
+                Log("Web request " + r.Method + " " + r.Path + " failed: " + ex.Message); // the details stay in the log
+                return Reply(500, "Internal Server Error", "text/plain", "Internal error, see the app log\n");
             }
         }
 
@@ -264,6 +266,10 @@ namespace W10MWebCam.Streaming
                 "HTTP/1.0 " + code + " " + reason + "\r\n" +
                 "Content-Type: " + contentType + "\r\n" +
                 "Content-Length: " + body.Length + "\r\n" +
+                // no framing by other sites (clickjacking the settings page), no guessing of content types
+                "X-Frame-Options: DENY\r\n" +
+                "Content-Security-Policy: frame-ancestors 'none'\r\n" +
+                "X-Content-Type-Options: nosniff\r\n" +
                 extraHeaders +
                 "Connection: close\r\n\r\n");
             var all = new byte[head.Length + body.Length];

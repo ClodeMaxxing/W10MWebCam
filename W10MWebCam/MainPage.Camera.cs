@@ -66,10 +66,15 @@ namespace W10MWebCam
         /// <summary>Applies changed camera settings now (focus, exposure and white balance can change while streaming).</summary>
         private async Task ApplyCameraNowAsync()
         {
-            SaveCameraSettings();
-            var cap = _camera?.Capture;
-            if (cap != null) await _tuning.ApplyAsync(cap);
-            UpdateCameraUi();
+            // Called from event handlers and timers (async void): nothing may escape, or the app ends.
+            try
+            {
+                SaveCameraSettings();
+                var cap = _camera?.Capture;
+                if (cap != null) await _tuning.ApplyAsync(cap);
+                UpdateCameraUi();
+            }
+            catch (Exception ex) { Log("Camera settings: " + ex.GetType().Name + ": " + ex.Message); }
         }
 
         // ---- manual sliders (as in W10MDashcam): shown while at least one of focus / exposure / white balance is manual.
@@ -185,6 +190,7 @@ namespace W10MWebCam
                 await ApplyCameraNowAsync();
                 return ok ? "Focus locked" : "Focus once failed (see the log)";
             }
+            catch (Exception ex) { Log("Focus once: " + ex.Message); return "Focus once failed (see the log)"; }
             finally { FocusOnceButton.IsEnabled = _tuning.FocusSupported; }
         }
 

@@ -84,17 +84,21 @@ namespace W10MWebCam
         /// </summary>
         private async Task MatchPreviewAsync(string why)
         {
-            if (_camera == null) return;
-            if (!_camera.IsStreaming)
+            try
             {
-                if (!_busy) await _camera.SetPreviewAsync(IdlePreviewWanted);
+                if (_camera == null) return;
+                if (!_camera.IsStreaming)
+                {
+                    if (!_busy) await _camera.SetPreviewAsync(IdlePreviewWanted);
+                }
+                else if (_camera.Previewing != PreviewWanted && !_busy)
+                {
+                    Log("Restarting the stream once " + why + " (the preview can't change during a recording)");
+                    await RestartStreamAsync();
+                }
+                UpdatePreviewNote();
             }
-            else if (_camera.Previewing != PreviewWanted && !_busy)
-            {
-                Log("Restarting the stream once " + why + " (the preview can't change during a recording)");
-                await RestartStreamAsync();
-            }
-            UpdatePreviewNote();
+            catch (Exception ex) { Log("Camera picture: " + ex.GetType().Name + ": " + ex.Message); }
         }
 
         private void EndPhoneAdjust()

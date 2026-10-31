@@ -85,7 +85,7 @@ namespace W10MWebCam
 
             VersionText.Text = "v" + AppVersion;
 
-            Application.Current.UnhandledException += (s, e) => Log("CRASH (unhandled): " + e.Exception);
+            Application.Current.UnhandledException += (s, e) => Log("CRASH (unhandled): " + e.Exception + " | " + e.Message);
             _server.Log = Log;
             _tuning.Log = Log;
             SetUpWeb();
@@ -491,6 +491,7 @@ namespace W10MWebCam
             var deferral = e.SuspendingOperation.GetDeferral();
             try
             {
+                Log("App suspended (closed or switched away) - a session that ends without this line ended abruptly");
                 MarkLaunchHealthy(); // a clean suspend is not a failed launch
                 EndPhoneAdjust();
                 _statsTimer.Stop();
@@ -518,7 +519,6 @@ namespace W10MWebCam
         private readonly LinkedList<string> _screenLog = new LinkedList<string>();
         private readonly List<string> _fullLog = new List<string>();
         private static readonly string LogFile = System.IO.Path.Combine(ApplicationData.Current.LocalFolder.Path, "log.txt");
-        private static readonly string PrevLogFile = System.IO.Path.Combine(ApplicationData.Current.LocalFolder.Path, "log-previous.txt");
         private string _previousSession = "";
         private int _linesSinceSizeCheck;
 
@@ -531,26 +531,41 @@ namespace W10MWebCam
                 stats = string.Format("W10MWebCam {0}  streaming: {1}  fps: {2:0.0}  Mbps: {3:0.00}  keyframe every: {4:0.0}s  viewers: {5}  engine: {6}\n\n",
                     AppVersion, cam.IsStreaming, cam.Fps, cam.Mbps, cam.KeyframeIntervalSec, _server.ClientCount, cam.PathName);
             lock (_fullLog) return stats + string.Join("\n", _fullLog) +
-                (_previousSession.Length > 0 ? "\n\n--- previous session (last lines) ---\n" + _previousSession : "");
+                (_previousSession.Length > 0 ? "\n\n" + _previousSession : "");
         }
 
         /// <summary>Keep the last session's log (it survives a crash) and start a fresh one.</summary>
+        /// <summary>
+        /// Keeps the last three sessions' logs (log-previous.txt, -2, -3; they survive a crash) and starts a fresh one.
+        /// The served log ends with the tail of each, so a crash is still visible after the app was reopened twice.
+        /// </summary>
         private void RotateLogFile()
         {
+            string folder = ApplicationData.Current.LocalFolder.Path;
+            string Prev(int n) => System.IO.Path.Combine(folder, n == 1 ? "log-previous.txt" : "log-previous-" + n + ".txt");
             try
             {
                 if (System.IO.File.Exists(LogFile))
                 {
-                    if (System.IO.File.Exists(PrevLogFile)) System.IO.File.Delete(PrevLogFile);
-                    System.IO.File.Move(LogFile, PrevLogFile);
+                    if (System.IO.File.Exists(Prev(3))) System.IO.File.Delete(Prev(3));
+                    if (System.IO.File.Exists(Prev(2))) System.IO.File.Move(Prev(2), Prev(3));
+                    if (System.IO.File.Exists(Prev(1))) System.IO.File.Move(Prev(1), Prev(2));
+                    System.IO.File.Move(LogFile, Prev(1));
                 }
-                if (System.IO.File.Exists(PrevLogFile))
+                var parts = new List<string>();
+                for (int n = 1; n <= 3; n++)
                 {
-                    var lines = System.IO.File.ReadAllLines(PrevLogFile);
-                    _previousSession = string.Join("\n", lines.Skip(Math.Max(0, lines.Length - 120)));
+                    if (!System.IO.File.Exists(Prev(n))) continue;
+                    var lines = System.IO.File.ReadAllLines(Prev(n));
+                    bool clean = lines.Any(l => l.Contains("App suspended"));
+                    bool crash = lines.Any(l => l.Contains("CRASH"));
+                    string head = n == 1 ? "previous session" : n == 2 ? "session before that" : "three sessions ago";
+                    parts.Add("--- " + head + " (" + (crash ? "CRASHED" : clean ? "closed normally" : "ended abruptly: crash, phone off or older build") + "; last lines) ---\n" +
+                              string.Join("\n", lines.Skip(Math.Max(0, lines.Length - (n == 1 ? 120 : 60)))));
                 }
+                _previousSession = string.Join("\n\n", parts);
             }
-            catch (Exception ex) { _previousSession = "(could not read previous log: " + ex.Message + ")"; }
+            catch (Exception ex) { _previousSession = "(could not read previous logs: " + ex.Message + ")"; }
         }
 
         private void Log(string message)

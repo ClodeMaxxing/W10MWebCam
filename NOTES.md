@@ -163,8 +163,11 @@ Safety nets:
 - **Self-check (1.1):** `LaunchInProgress` is set at launch and cleared after 20 s or on suspend. Two failed launches
   in a row → LocalSettings cleared (defaults) and `SELF-CHECK` logged.
 - **Stall watchdog:** no native frames for 4 s → restart; two stalls within 2 min → MP4 engine until reopened.
-- **Persistent log:** `LocalFolder\log.txt` (restarted above ~2 MB); the previous session is kept as
-  `log-previous.txt` and its last 120 lines are appended to the served log.
+- **Persistent log:** `LocalFolder\log.txt` (restarted above ~2 MB). The last three sessions are kept as
+  `log-previous.txt`, `-2`, `-3`; the served log ends with their tails, each marked CRASHED, closed normally (the
+  "App suspended" line) or ended abruptly (crash without a log line, phone switched off, or an install).
+- **Event handlers never throw:** camera-control handlers, timers and the adjust/preview code catch and log
+  everything (an exception escaping an `async void` handler ends a UWP app).
 
 ## Dev-environment notes
 

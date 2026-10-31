@@ -40,6 +40,8 @@ Renamed from LumiaCam, and the improvements from its forks (W10MSecurityCam 1.1,
   shows the camera picture; 60 s after the last touch the picture ends and the screen goes black again. While streaming,
   starting and ending the picture each restart the stream once (the preview can't change during a 4K recording); OBS
   reconnects by itself. Changes on the PC settings page never do this.
+- The log keeps the last three sessions (each marked crashed, closed normally or ended abruptly), so a crash is still
+  visible after the app has been reopened; camera-control handlers catch and log errors instead of ending the app.
 - Switching focus to manual starts from the last sensible lens position: the 950's autofocus sometimes reports the near
   end stop (0) while the picture is sharp, which made the manual picture jump out of focus.
 - 6 Mbps added to the bitrate list.

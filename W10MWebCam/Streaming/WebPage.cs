@@ -80,8 +80,7 @@ input.tx{background:#0d140f;color:#d6e8d9;border:1px solid #1f3a26;border-radius
 
 <h2>Connect</h2>
 <div class='row'><div id='connect'></div>
-<div class='sub'>USB addresses (127.0.0.1) work on the PC the phone is plugged into; Wi-Fi addresses from any device on the same network.
-4K needs the USB cable or fast Wi-Fi. VLC: Media &gt; Open Network Stream, then add <code>:demux=h264</code> under Show more options &gt; Edit Options.</div></div>
+<div class='sub'>How to open the video in OBS, VLC or ffplay: see <a href='#viewer' id='toviewer' style='color:#3fbf5f'>Viewer setup</a> below.</div></div>
 
 <h2>Video</h2>
 <div class='row'>
@@ -128,13 +127,23 @@ input.tx{background:#0d140f;color:#d6e8d9;border:1px solid #1f3a26;border-radius
 <div id='loginform'><input class='tx' id='lu' placeholder='User name' autocomplete='username'> <input class='tx' id='lp' type='password' placeholder='New password' autocomplete='new-password'> <input class='tx' id='lp2' type='password' placeholder='Repeat password' autocomplete='new-password'>
 <div class='btnrow'><button id='lb'>Save login</button><button id='lrm'>Reset to admin / admin</button></div></div></div>
 
-<h2>OBS setup</h2>
-<div class='row'><div class='sub'>Media Source: untick Local File. Then:</div>
+<h2 id='viewer'>Viewer setup</h2>
+<div class='row'><div class='sub'>Which address: <b>USB</b> addresses (127.0.0.1) work only on the PC the phone is plugged into; <b>Wi-Fi</b> addresses work from any device on the same network (see Connect above). 4K at Auto bitrate needs about 37 Mbps: use the USB cable, or 1080p / a lower bitrate over Wi-Fi.
+The video is raw H.264 with no container, so players must be told the format, as below.</div></div>
+<div class='row'><div class='head'><span>OBS Studio (as a webcam)</span></div>
+<div class='sub'>Add a Media Source, untick Local File, then:</div>
 <div class='addr'><b>Input</b><code>tcp://127.0.0.1:8020</code></div>
-<div class='sub'>(over Wi-Fi: the Wi-Fi video address under Connect)</div>
+<div class='sub'>(over Wi-Fi: the Wi-Fi video address from Connect)</div>
 <div class='addr'><b>Input format</b><code>h264</code></div>
-<div class='addr'><b>FFmpeg options</b><code>fflags=nobuffer flags=low_delay analyzeduration=0 probesize=500000</code></div>
-<div class='sub'>Then Start Virtual Camera and choose OBS Virtual Camera in your video app.</div></div>
+<div class='addr'><b>FFmpeg options (lowest delay)</b><code>fflags=nobuffer flags=low_delay analyzeduration=0 probesize=500000</code></div>
+<div class='sub'>Tick Restart playback when source becomes active. Then Start Virtual Camera and choose OBS Virtual Camera in your video app.</div></div>
+<div class='row'><div class='head'><span>VLC</span></div>
+<div class='sub'>Media &gt; Open Network Stream, enter the video address, tick Show more options and add this to Edit Options (without it VLC connects but never plays):</div>
+<div class='addr'><b>Edit Options</b><code>:demux=h264</code></div>
+<div class='sub'>Or from a command prompt:</div>
+<div class='addr'><b>Command</b><code>vlc --demux=h264 tcp://127.0.0.1:8020</code></div></div>
+<div class='row'><div class='head'><span>ffplay (quick test)</span></div>
+<div class='addr'><b>Command</b><code>ffplay -fflags nobuffer -flags low_delay -f h264 tcp://127.0.0.1:8020</code></div></div>
 <div id='msg'></div><div id='tipbox'></div>
 <script>
 var st=null,busyUntil=0,timer=null;
@@ -267,6 +276,7 @@ function later(body){busyUntil=Date.now()+4000;clearTimeout(timer);timer=setTime
 function onoff(b){return b?'on':'off'}
 $('stream').onclick=function(){send('stream='+(st&&st.streaming?'stop':'start'),st&&st.streaming?'Stopping...':'Starting...')};
 $('loginb').onclick=function(){location.href='/login'};
+$('toviewer').onclick=function(e){e.preventDefault();var h=$('viewer');if(h.nextSibling&&h.nextSibling.style&&h.nextSibling.style.display==='none')h.click();h.scrollIntoView({behavior:'smooth'})};
 $('lb').onclick=function(){var u=$('lu').value.trim(),p=$('lp').value;
  if(p!==$('lp2').value){$('msg').textContent='The two passwords differ';return}
  if(p.length<4){$('msg').textContent='The password needs at least 4 characters';return}

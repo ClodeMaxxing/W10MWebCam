@@ -33,6 +33,11 @@ Renamed from LumiaCam, and the improvements from its forks (W10MSecurityCam 1.1,
   badge, phone and app CPU, memory, engine badge, encoder latency, power in watts); red and amber notices; folding
   sections (Video, Camera, Power, Details and log) with (i) pop-ups instead of long labels. Brushes are cached and the
   tiles are not redrawn while the screen is black.
+- **Manual camera sliders on the phone** (as in W10MDashcam): switching off "Automatic focus, exposure and white balance"
+  shows a slider and an Auto / Manual switch for each, starting from what the camera is using; all three back on Auto
+  hides them again.
+- Switching focus to manual starts from the last sensible lens position: the 950's autofocus sometimes reports the near
+  end stop (0) while the picture is sharp, which made the manual picture jump out of focus.
 - 6 Mbps added to the bitrate list.
 
 ## 1.0 — LumiaCam

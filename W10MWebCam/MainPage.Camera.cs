@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using Windows.UI.Xaml;
+using Windows.UI.Xaml.Controls;
 
 namespace W10MWebCam
 {
@@ -71,6 +72,19 @@ namespace W10MWebCam
             UpdateCameraUi();
         }
 
+        // ---- manual sliders (as in W10MDashcam): shown while at least one of focus / exposure / white balance is manual.
+
+        private DispatcherTimer _tuningTimer;
+        private DateTime _sliderTouchedAt = DateTime.MinValue;
+
+        // The exposure slider is logarithmic (0..100 -> shortest..longest shutter time): useful values span 1000x.
+        private double ExposureMaxForSlider => Math.Max(_tuning.ExposureMinUseful + 0.001, Math.Min(_tuning.ExposureMaxMs, _tuning.FrameLimitMs));
+        private double SliderToExposure(double v) =>
+            _tuning.ExposureMinUseful * Math.Pow(ExposureMaxForSlider / _tuning.ExposureMinUseful, v / 100.0);
+        private double ExposureToSlider(double ms) =>
+            100.0 * Math.Log(Math.Max(ms, _tuning.ExposureMinUseful) / _tuning.ExposureMinUseful) / Math.Log(ExposureMaxForSlider / _tuning.ExposureMinUseful);
+
+        /// <summary>Puts the camera settings (and the camera's ranges) on screen. Also called after changes from the web page.</summary>
         private void UpdateCameraUi()
         {
             bool was = _loading;
@@ -78,18 +92,80 @@ namespace W10MWebCam
             try
             {
                 CameraAutoToggle.IsOn = _tuning.Auto;
-                CameraText.Text = "Camera: " + _tuning.Mode + (_tuning.State.Length > 0 ? " - " + _tuning.State : "");
+                CameraText.Text = "Now: " + (_tuning.State.Length > 0 ? _tuning.State : _tuning.Mode);
+                ManualCameraPanel.Visibility = _tuning.Auto ? Visibility.Collapsed : Visibility.Visible;
+                FocusAutoToggle.IsOn = _tuning.FocusAuto;
+                ExposureAutoToggle.IsOn = _tuning.ExposureAuto;
+                WbAutoToggle.IsOn = _tuning.WbAuto;
+                FocusAutoToggle.IsEnabled = _tuning.FocusSupported;
+                ExposureAutoToggle.IsEnabled = _tuning.ExposureSupported;
+                WbAutoToggle.IsEnabled = _tuning.WhiteBalanceSupported;
+                FocusSlider.IsEnabled = _tuning.FocusSupported && !_tuning.FocusAuto;
+                ExposureSlider.IsEnabled = _tuning.ExposureSupported && !_tuning.ExposureAuto;
+                WbSlider.IsEnabled = _tuning.WhiteBalanceSupported && !_tuning.WbAuto;
+                // Don't pull a slider out from under a finger that is still moving it.
+                if ((DateTime.Now - _sliderTouchedAt).TotalSeconds > 3)
+                {
+                    FocusSlider.Value = _tuning.FocusPercent;
+                    if (_tuning.ExposureSupported) ExposureSlider.Value = Math.Max(0, Math.Min(100, ExposureToSlider(_tuning.ExposureMs)));
+                    if (_tuning.WhiteBalanceSupported)
+                    {
+                        WbSlider.Minimum = _tuning.WbMin;
+                        WbSlider.Maximum = Math.Max(_tuning.WbMin + 1, _tuning.WbMax);
+                        WbSlider.Value = Math.Max(_tuning.WbMin, Math.Min(_tuning.WbMax, _tuning.WhiteBalanceKelvin));
+                    }
+                }
+                UpdateTuningLabels();
             }
             finally { _loading = was; }
+        }
+
+        private void UpdateTuningLabels()
+        {
+            FocusLabel.Text = !_tuning.FocusSupported ? "Focus: not adjustable"
+                : _tuning.FocusAuto ? "Focus: automatic" + (_tuning.FocusHeld ? " (held)" : "") : "Focus: " + Math.Round(_tuning.FocusPercent) + " (0 near - 100 far)";
+            ExposureLabel.Text = !_tuning.ExposureSupported ? "Exposure: not adjustable"
+                : _tuning.ExposureAuto ? "Exposure: automatic"
+                : string.Format("Exposure: {0:0.##} ms (1/{1:0} s)", _tuning.ExposureMs, 1000.0 / Math.Max(0.001, _tuning.ExposureMs));
+            WbLabel.Text = !_tuning.WhiteBalanceSupported ? "White balance: not adjustable"
+                : _tuning.WbAuto ? "White balance: automatic" : "White balance: " + _tuning.WhiteBalanceKelvin + " K";
         }
 
         private async void CameraAutoToggle_Toggled(object sender, RoutedEventArgs e)
         {
             if (_loading) return;
-            if (!CameraAutoToggle.IsOn) _tuning.SeedFromCamera(_camera?.Capture, true, true, true); // hold the current picture
+            // Switching the main switch off makes all three manual, starting from what the camera is using right now.
+            if (!CameraAutoToggle.IsOn) _tuning.SeedFromCamera(_camera?.Capture, _tuning.FocusAuto, _tuning.ExposureAuto, _tuning.WbAuto);
             _tuning.ReleaseFocusHold();
             _tuning.Auto = CameraAutoToggle.IsOn;
             await ApplyCameraNowAsync();
+        }
+
+        private async void SubAuto_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (_loading) return;
+            bool on = ((ToggleSwitch)sender).IsOn;
+            if (!on) _tuning.SeedFromCamera(_camera?.Capture, sender == FocusAutoToggle, sender == ExposureAutoToggle, sender == WbAutoToggle);
+            if (sender == FocusAutoToggle) { _tuning.FocusAuto = on; _tuning.ReleaseFocusHold(); }
+            else if (sender == ExposureAutoToggle) _tuning.ExposureAuto = on;
+            else if (sender == WbAutoToggle) _tuning.WbAuto = on;
+            await ApplyCameraNowAsync(); // all three on Auto switches the main switch on and hides the sliders
+        }
+
+        private void TuningSlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+        {
+            if (_loading || FocusLabel == null) return;
+            _sliderTouchedAt = DateTime.Now;
+            if (sender == FocusSlider) _tuning.FocusPercent = FocusSlider.Value;
+            else if (sender == ExposureSlider) _tuning.ExposureMs = _tuning.SnapExposureMs(SliderToExposure(ExposureSlider.Value));
+            else if (sender == WbSlider) _tuning.WhiteBalanceKelvin = (uint)(Math.Round(WbSlider.Value / 100.0) * 100);
+            UpdateTuningLabels();
+            if (_tuningTimer == null)
+            {
+                _tuningTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+                _tuningTimer.Tick += async (s, a) => { _tuningTimer.Stop(); await ApplyCameraNowAsync(); };
+            }
+            _tuningTimer.Stop(); _tuningTimer.Start(); // apply once the slider stops moving
         }
 
         private async void FocusOnceButton_Click(object sender, RoutedEventArgs e) => await FocusOnceAsync();

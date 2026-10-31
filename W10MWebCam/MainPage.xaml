@@ -252,10 +252,23 @@
                     <Grid>
                         <ToggleSwitch x:Name="CameraAutoToggle" Header="Automatic focus, exposure and white balance" IsOn="True" Toggled="CameraAutoToggle_Toggled" />
                         <Button Style="{StaticResource InfoButton}"><Button.Flyout><Flyout><TextBlock Style="{StaticResource InfoText}"
-                            Text="Off holds the current values. Each one has its own Auto box and slider on the PC settings page (http://127.0.0.1:8020/settings)." /></Flyout></Button.Flyout></Button>
+                            Text="Off shows a slider for focus, exposure and white balance, starting from what the camera is using now. Each can go back to Auto on its own; the PC settings page (http://127.0.0.1:8020/settings) has the same controls." /></Flyout></Button.Flyout></Button>
                     </Grid>
                     <Button x:Name="FocusOnceButton" Content="Focus once and lock" HorizontalAlignment="Stretch" Margin="0,2,0,4" Click="FocusOnceButton_Click" />
                     <TextBlock x:Name="CameraText" Text="" Style="{StaticResource Note}" Margin="0,0,0,4" />
+                    <!-- Shown while at least one setting is manual (as in W10MDashcam). Each setting: its value as a label,
+                         Auto / Manual, then the slider (greyed out on Auto). All three on Auto hides this panel again. -->
+                    <StackPanel x:Name="ManualCameraPanel" Visibility="Collapsed">
+                        <TextBlock x:Name="FocusLabel" Text="Focus" FontSize="12" Margin="0,4,0,0" />
+                        <ToggleSwitch x:Name="FocusAutoToggle" OnContent="Auto" OffContent="Manual" Toggled="SubAuto_Toggled" Margin="0,-6,0,-6" />
+                        <Slider x:Name="FocusSlider" Minimum="0" Maximum="100" StepFrequency="1" Margin="0,-6,0,0" ValueChanged="TuningSlider_ValueChanged" />
+                        <TextBlock x:Name="ExposureLabel" Text="Exposure" FontSize="12" />
+                        <ToggleSwitch x:Name="ExposureAutoToggle" OnContent="Auto" OffContent="Manual" Toggled="SubAuto_Toggled" Margin="0,-6,0,-6" />
+                        <Slider x:Name="ExposureSlider" Minimum="0" Maximum="100" StepFrequency="0.5" Margin="0,-6,0,0" ValueChanged="TuningSlider_ValueChanged" />
+                        <TextBlock x:Name="WbLabel" Text="White balance" FontSize="12" />
+                        <ToggleSwitch x:Name="WbAutoToggle" OnContent="Auto" OffContent="Manual" Toggled="SubAuto_Toggled" Margin="0,-6,0,-6" />
+                        <Slider x:Name="WbSlider" Minimum="2000" Maximum="8000" StepFrequency="100" Margin="0,-6,0,0" ValueChanged="TuningSlider_ValueChanged" />
+                    </StackPanel>
                     <Grid>
                         <ToggleSwitch x:Name="TorchToggle" Header="Flashlight" Toggled="TorchToggle_Toggled" IsEnabled="False" />
                         <Button Style="{StaticResource InfoButton}"><Button.Flyout><Flyout><TextBlock Style="{StaticResource InfoText}"

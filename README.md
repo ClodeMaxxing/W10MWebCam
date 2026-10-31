@@ -4,6 +4,9 @@ Turns a Lumia 950 (Windows 10 Mobile) into a low-latency webcam for a Windows PC
 produces H.264 (up to 4K30) and the app sends it raw over **USB** (recommended) or **Wi-Fi**. On the PC, OBS receives
 it and exposes it as a webcam through **OBS Virtual Camera**, so it works in Zoom, Teams, Discord, browsers and so on.
 
+Full guide with screenshots: the **[wiki](https://github.com/ClodeMaxxing/W10MWebCam/wiki)**. Ready-built package:
+**[latest release](https://github.com/ClodeMaxxing/W10MWebCam/releases/latest)** (see *Install a release* below).
+
 Typical numbers at 4K30 over USB: about 115 ms from the camera sensor to an encoded frame on the phone, about 35 Mbps,
 steady frame pacing. With the blackout screen on, the phone can charge while it streams (given enough power, see
 *Power and heat*).
@@ -13,8 +16,9 @@ W10MWebCam was called **LumiaCam** up to version 1.0. Its sister apps grew out o
 [W10MDashcam](https://github.com/ClodeMaxxing/W10MDashcam) (dashcam). Version 1.1 brings back their stability fixes,
 power and heat handling, camera controls and settings page.
 
-It should run on other phones with Windows 10 Mobile 1607 or later (Lumia 950 XL, 550, 650, HP Elite x3, ...), with the
-formats their cameras offer, but it has only been tested on a Lumia 950 (build 10.0.15254.603).
+It has only been tested on a Lumia 950 with Windows 10 Mobile 1709, OS build 10.0.15254.603. The package asks for
+Windows 10 Mobile 1607 (build 14393) or later, but other phones (Lumia 950 XL, 550, 650, HP Elite x3, ...) are untested:
+whether they work is unknown. See *Compatibility* on the [wiki](https://github.com/ClodeMaxxing/W10MWebCam/wiki).
 
 ---
 
@@ -39,16 +43,17 @@ screen locks or another app opens, and there is no way around that for an app. T
 |---|---|
 | Video over USB | `tcp://127.0.0.1:8020` |
 | Video over Wi-Fi | `tcp://PHONE-IP:5000` (the app shows the IP) |
-| Settings page (USB, can change settings) | `http://127.0.0.1:8020/settings` (or just `http://127.0.0.1:8020/`) |
-| Settings page (Wi-Fi, view only) | `http://PHONE-IP:5001/settings` |
+| Settings page over USB | `http://127.0.0.1:8020/settings` (or just `http://127.0.0.1:8020/`) |
+| Settings page over Wi-Fi | `http://PHONE-IP:5001/settings` |
 | Health as JSON | `/status` on either of the two web addresses |
 | Log *(off by default)* | `/log` on either web address |
 | Stats, last 12 h of graphs *(off by default)* | `/stats` on either web address |
 
-**Changing settings:** over the USB cable the settings page can always change settings (only the PC the phone is
-plugged into can reach it). Over Wi-Fi the browser asks for the **login** before the first change (or press **Log in**).
+**Changing settings:** changes on the settings page need the **login**, over the USB cable and over Wi-Fi alike: the
+browser asks for it before the first change (or press **Log in**). USB is not exempt because any program or web page on
+the PC the phone is plugged into can reach the USB port. Viewing the page, `/status` and the video need no login.
 A new install uses **admin / admin**, with a warning on the phone and the page until you change it (Network > Login, or
-on the settings page). An empty password resets it to admin / admin. Viewing over Wi-Fi needs no login.
+on the settings page). An empty password resets it to admin / admin.
 
 The phone's main screen shows just the two addresses you need, grouped: **USB cable** (video, settings) and **Wi-Fi**
 (video, settings). The Network section lists every page's USB and Wi-Fi address under its switch.
@@ -56,8 +61,9 @@ The phone's main screen shows just the two addresses you need, grouped: **USB ca
 **Network switches** (phone: *Network* section; the settings page shows each one's real state as ON / OFF).
 **Video over Wi-Fi** (on): the video for any viewer not on the USB cable. The raw stream has **no login** (OBS and VLC
 can't send one), so while it is on anyone on your network can watch; the app shows an "unauthenticated network video"
-warning. Switch it off if you only use the USB cable. **Web page** (on): the settings page and `/status`; switched off,
-only the video is served, and only the phone can switch it back on. **Log page** and **Stats page** (both off): switch
+warning. Switch it off if you only use the USB cable. **Web page (settings and status)** (on): the settings page and
+`/status`; switched off, only the video is served, and only the phone can switch it back on. **Log page (/log)** and
+**Stats page (/stats)** (both off): switch
 them on when you want them, on the phone or on the settings page. The stats page keeps a sample every 30 s, only while
 it is on, so it shows the time since it was switched on (up to 12 hours). The video is never affected by these.
 
@@ -92,15 +98,15 @@ On the phone and on the settings page:
 | Resolution | Recording format of the rear camera | 3840×2160 @ 30 for content, 1920×1080 @ 30 for calls |
 | Bitrate | Encoder target. *Auto* ≈ 37 Mbps at 4K30, ≈ 9 Mbps at 1080p30 | Auto |
 | Keyframe every | How often a full frame is sent. Shorter = faster joins and recovery, slightly more data | 1 s |
-| Blackout screen while streaming | Black OLED screen and minimum brightness. Saves battery and lets the phone charge | On |
-| Start streaming when app opens | Auto-start | On |
-| Preview on phone | Live picture on the phone. Changes take effect while the stream is stopped (changing the preview during a 4K recording can stall it) | Your choice |
-| Automatic focus, exposure, white balance | Off shows a slider and Auto / Manual switch for each, and the camera picture on the phone until 60 s after the last touch (while streaming, starting and ending the picture restart the stream once each) | On |
+| Black screen while streaming | Black OLED screen and minimum brightness. Saves battery and lets the phone charge | On |
+| Start streaming when the app opens | Auto-start | On |
+| Preview on the phone | Live picture on the phone. Changes take effect while the stream is stopped (changing the preview during a 4K recording can stall it) | Your choice |
+| Automatic focus, exposure and white balance | Off shows a slider and Auto / Manual switch for each, and the camera picture on the phone until 60 s after the last touch (while streaming, starting and ending the picture restart the stream once each) | On |
 | Focus once and lock | Focuses once and keeps the lens there (good for a fixed scene) | |
 | Flashlight | Only while streaming; switches off after 30 s because the LED heats the phone and cannot be dimmed | |
-| Stabilization off | For a fixed mount: less processing and heat. Restarts the stream once | Off |
+| Stabilization off (fixed mount) | For a fixed mount: less processing and heat. Restarts the stream once | Off |
 | Hold focus once it has settled | Parks the lens after autofocus settles (stops hunting). Not for a subject that moves toward or away from the camera | Off |
-| Lower to 1080p / 6 Mbps if the phone overheats | See *Power and heat* | Off |
+| Lower to 1080p if the phone overheats | Drops to 1080p / 6 Mbps while the battery is hot. See *Power and heat* | Off |
 | When unplugged, stop streaming after | See *Power and heat* | Never |
 
 Changing resolution, bitrate, keyframe or stabilization while streaming restarts the stream for a moment; OBS
@@ -120,8 +126,8 @@ and a hot battery makes Windows pause charging.
 - **"Charger insufficient"** appears when the battery drains although the phone says it is charging. Use a 2 A or
   better charger (through a powered hub or a dock), or a lower resolution.
 - **Heat:** Windows gives apps no temperature. When charging pauses for 20 s on a charger Windows calls adequate (below
-  95 %), the battery is hot and the app warns. With **Lower to 1080p / 6 Mbps if the phone overheats** on, it also
-  lowers the stream until charging has resumed for 30 s (and at least 3 minutes); your own settings are never
+  95 %), the battery is hot and the app warns. With **Lower to 1080p if the phone overheats** on, it also
+  lowers the stream to 1080p / 6 Mbps until charging has resumed for 30 s (and at least 3 minutes); your own settings are never
   overwritten. It is off by default, so a recording never changes resolution unexpectedly.
 - **Stop when unplugged** (off by default): when the phone goes on battery while streaming, a countdown appears on the
   screen (it lifts the blackout) and the stream stops when it ends, so the phone isn't run flat. **Keep streaming**
@@ -138,17 +144,31 @@ and a hot battery makes Windows pause charging.
 | The app closes by itself | Switch on Network > Log page and run `tools\Get-Phone-Log.cmd`: the log keeps the last three sessions, marked CRASHED / closed normally / ended abruptly. For a Windows crash dump, see `Crash-Dumps.ps1` below. |
 | Stream stops when the screen locks | Expected (Windows limitation). Keep the app in front; the blackout screen keeps the screen awake. |
 | Battery drains / "Charger insufficient" | Better power (2 A charger, powered hub) or 1080p. Keep the blackout on. |
-| Heat notice | Give the phone air (out of a case, not in the sun), lower the resolution, or turn on *Lower to 1080p*. |
-| Install says "same identity but different contents" | Increase `Version` in `W10MWebCam/Package.appxmanifest`. |
+| Heat notice | Give the phone air (out of a case, not in the sun), lower the resolution, or turn on *Lower to 1080p if the phone overheats*. |
+| Install says "same identity but different contents" | The version number is unchanged. A release: uninstall the app first (this resets its settings). Your own build: increase `Version` in `W10MWebCam/Package.appxmanifest`. |
 | Install asks for a PIN | Phone: Settings > Update & security > For developers > Pair, type the code. |
 
 ## Install a release
 
-Download `W10MWebCam_<version>_ARM.zip` from the [Releases page](https://github.com/ClodeMaxxing/W10MWebCam/releases).
-It holds the app package, the three Microsoft runtime packages it needs, the test certificate and `INSTALL.txt` with the
-steps. Check the zip against `SHA256SUMS.txt`. In short: turn on developer mode on the phone, then install the package
-with its dependencies from the phone's Device Portal (*Apps* > *Install app*) or with `WinAppDeployCmd` from the
-Windows SDK. The package is signed with the included self-signed certificate, which the phone accepts in developer mode.
+Download `W10MWebCam_<version>_ARM.zip` from the
+[latest release](https://github.com/ClodeMaxxing/W10MWebCam/releases/latest). It is ready-built: no compiling and
+nothing else to download. It holds the app package (`W10MWebCam_<package version>_ARM.appx`; the package version has
+four parts, for example 1.1.0.15 in release 1.1.1), `Dependencies\` with the three Microsoft runtime packages it needs
+(`Microsoft.NET.Native.Framework.1.7.appx`, `Microsoft.NET.Native.Runtime.1.7.appx`, `Microsoft.VCLibs.ARM.14.00.appx`),
+the test certificate, `INSTALL.txt` with the steps and `LICENSE`.
+
+Check the zip against `SHA256SUMS.txt` from the same release, for example in PowerShell:
+`Get-FileHash .\W10MWebCam_<version>_ARM.zip -Algorithm SHA256` (or `certutil -hashfile <zip> SHA256`).
+
+In short: turn on developer mode, device discovery and Device Portal on the phone, open the Device Portal address in a
+browser on the PC, pair, and install the package with the three dependencies under *Apps* > *Install app*. Or use
+`WinAppDeployCmd` from the Windows 10 SDK. The package is signed with the included self-signed certificate, which the
+phone accepts in developer mode. Step by step: [Installation](https://github.com/ClodeMaxxing/W10MWebCam/wiki/Installation)
+on the [wiki](https://github.com/ClodeMaxxing/W10MWebCam/wiki).
+
+**Updating:** install the newer package the same way; settings and the login are kept. If Device Portal refuses with
+*same identity but different contents*, the version number is unchanged: uninstall the app first (this resets its
+settings).
 
 W10MWebCam installs beside LumiaCam, W10MSecurityCam and W10MDashcam (each has its own identity). Only one app can use
 the camera at a time. If you used LumiaCam, uninstall it; its settings are not carried over.

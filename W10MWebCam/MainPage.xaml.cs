@@ -26,7 +26,7 @@ namespace W10MWebCam
     {
         private const int WifiPort = 5000;  // raw H.264 over the network: tcp://PHONE-IP:5000
         private const int UsbPort = 8020;   // same stream over USB; Microsoft's IP-over-USB service maps PC 127.0.0.1:8020 to it
-        private const int LogPort = 5001;   // http://PHONE-IP:5001 shows the log and the (view-only) settings page over Wi-Fi
+        private const int LogPort = 5001;   // http://PHONE-IP:5001 shows the log and the settings page over Wi-Fi
 
         private CameraEngine _camera;
         private readonly StreamServer _server = new StreamServer(WifiPort, UsbPort);

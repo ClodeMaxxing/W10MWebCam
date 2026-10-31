@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.2 (package 1.1.0.16)
+
+- The phone and the settings page no longer say that changes over USB need no login, which 1.1.1 changed: the login
+  heading is now **Login (for changes)**, and the notices, the login status and the USB address on the page say the
+  login is needed over USB and Wi-Fi.
+- The login tooltip on the page said an empty password removes the login; it resets it to admin / admin.
+
 ## 1.1.1 (package 1.1.0.15)
 
 - **Settings changes need the login over the USB cable too.** Any program or web page on the PC the phone is plugged

@@ -9,10 +9,11 @@ using Windows.Security.Cryptography.Core;
 namespace W10MWebCam.Streaming
 {
     /// <summary>
-    /// The login for changing settings over Wi-Fi (ported from W10MSecurityCam's RTSP login). HTTP Digest authentication
+    /// The login for changing settings, over USB and Wi-Fi alike (ported from W10MSecurityCam's RTSP login). HTTP Digest authentication
     /// (RFC 2617; browsers show their own login box). The user name and password are kept in the Windows PasswordVault,
     /// not in app settings. As in W10MSecurityCam a fresh install uses admin / admin, with a warning on the phone and the
-    /// page until it is changed; an empty password resets it to that. USB never asks for it.
+    /// page until it is changed; an empty password resets it to that. Since 1.1.1 USB asks for it too: any program or web
+    /// page on the PC the phone is plugged into can reach the USB port.
     /// </summary>
     internal sealed class WebLogin
     {

@@ -225,7 +225,7 @@
                             </StackPanel>
                         </Border>
                         <Border x:Name="LoginNotice" Visibility="Collapsed" BorderBrush="#7D6E2E" BorderThickness="3,1,1,1" CornerRadius="5" Background="#1A1808" Padding="8,5,8,5" Margin="0,6,0,0">
-                            <TextBlock Text="Default login admin / admin in use for changes over Wi-Fi. Change it under Network > Login." FontSize="11" Foreground="#E8D8A0" TextWrapping="Wrap" />
+                            <TextBlock Text="Default login admin / admin in use for settings changes. Change it under Network > Login." FontSize="11" Foreground="#E8D8A0" TextWrapping="Wrap" />
                         </Border>
                         <Border x:Name="NoticeBox" Visibility="Collapsed" BorderBrush="#7D6E2E" BorderThickness="3,1,1,1" CornerRadius="5" Background="#1A1808" Padding="8,5,8,5" Margin="0,6,0,0">
                             <TextBlock x:Name="NoticeText" Text="" FontSize="11" Foreground="#E8D8A0" TextWrapping="Wrap" />
@@ -237,7 +237,7 @@
                 <Grid>
                     <TextBlock Text="CONNECT FROM THE PC" Style="{StaticResource TileLabel}" Margin="0,4,0,0" />
                     <Button Style="{StaticResource InfoButton}"><Button.Flyout><Flyout><TextBlock Style="{StaticResource InfoText}"
-                        Text="USB addresses (127.0.0.1) work on the PC the phone is plugged into; Wi-Fi addresses from any device on the same network. How to open the video in OBS, VLC or ffplay: see Viewer setup below. Settings can be changed over USB, or over Wi-Fi after logging in." /></Flyout></Button.Flyout></Button>
+                        Text="USB addresses (127.0.0.1) work on the PC the phone is plugged into; Wi-Fi addresses from any device on the same network. How to open the video in OBS, VLC or ffplay: see Viewer setup below. Settings can be changed after logging in, over USB or Wi-Fi." /></Flyout></Button.Flyout></Button>
                 </Grid>
                 <Border Style="{StaticResource Tile}" Margin="0,2,0,2">
                     <StackPanel>
@@ -365,7 +365,7 @@
                     <TextBlock x:Name="StatsPageAddressText" Text="" Style="{StaticResource Note}" FontFamily="Consolas" IsTextSelectionEnabled="True" Margin="0,-6,0,6" />
 
                     <Grid Margin="0,6,0,0">
-                        <TextBlock Text="LOGIN (CHANGES OVER WI-FI)" Style="{StaticResource TileLabel}" />
+                        <TextBlock Text="LOGIN (FOR CHANGES)" Style="{StaticResource TileLabel}" />
                         <Button Style="{StaticResource InfoButton}"><Button.Flyout><Flyout><TextBlock Style="{StaticResource InfoText}"
                             Text="The browser asks for this login before the first change, over the USB cable and over Wi-Fi (or press Log in on the page). A new install uses admin / admin: change it. An empty password resets it to admin / admin. Kept in the Windows password vault." /></Flyout></Button.Flyout></Button>
                     </Grid>

@@ -70,14 +70,14 @@ namespace W10MWebCam
             StatsPageAddressText.Opacity = web && StatsToggle.IsOn ? 1 : 0.4;
             LoginStatusText.Text = _http.Login.IsDefault
                 ? "Default login admin / admin: change it, or anyone on your network can change settings."
-                : "User \"" + _http.Login.UserName + "\": over Wi-Fi the browser asks for this login before changes.";
+                : "User \"" + _http.Login.UserName + "\": the browser asks for this login before changes, over USB and Wi-Fi.";
             LoginNotice.Visibility = _http.Login.IsDefault && web ? Visibility.Visible : Visibility.Collapsed;
             if (string.IsNullOrEmpty(UserBox.Text)) UserBox.Text = _http.Login.UserName;
         }
 
         private void SaveLoginButton_Click(object sender, RoutedEventArgs e) => SaveLogin(UserBox.Text, PassBox.Password);
 
-        /// <summary>Sets the Wi-Fi login (an empty password removes it). Returns a result line, or an error.</summary>
+        /// <summary>Sets the login for changes (an empty password resets it to admin / admin). Returns a result line, or an error.</summary>
         private string SaveLogin(string user, string password)
         {
             user = (user ?? "").Trim();
@@ -88,7 +88,7 @@ namespace W10MWebCam
             try { _http.Login.Save(user, password); }
             catch (Exception ex) { Log("Login: " + ex.Message); return "Login not saved: " + ex.Message; }
             PassBox.Password = "";
-            string result = _http.Login.IsDefault ? "Login reset to the default (admin / admin)" : "Login set for \"" + _http.Login.UserName + "\": changes over Wi-Fi need it";
+            string result = _http.Login.IsDefault ? "Login reset to the default (admin / admin)" : "Login set for \"" + _http.Login.UserName + "\": changes need it";
             Log(result);
             UpdateAddresses();
             return result;

@@ -122,7 +122,7 @@ input.tx{background:#0d140f;color:#d6e8d9;border:1px solid #1f3a26;border-radius
 <div class='links' id='loglinks'></div></div>
 <div class='row'><label><input type='checkbox' id='statspage'> Stats page</label><span class='st' id='st-statspage'></span><span class='hint' id='h-statspage'></span><i class='tip' data-tip='Graphs of the last 12 hours (frame rate, bitrate, latency, battery, power, CPU, memory, heat). Samples every 30 s only while this is on. Off by default.'>i</i>
 <div class='links' id='statslinks'></div></div>
-<div class='row'><div class='head'><span>Login for changes<i class='tip' data-tip='Changes need this login, over the USB cable and over Wi-Fi: the browser asks for it before the first change. An empty password removes the login.'>i</i></span></div>
+<div class='row'><div class='head'><span>Login for changes<i class='tip' data-tip='Changes need this login, over the USB cable and over Wi-Fi: the browser asks for it before the first change. An empty password resets it to admin / admin.'>i</i></span></div>
 <div class='sub' id='loginstate'></div>
 <div id='loginform'><input class='tx' id='lu' placeholder='User name' autocomplete='username'> <input class='tx' id='lp' type='password' placeholder='New password' autocomplete='new-password'> <input class='tx' id='lp2' type='password' placeholder='Repeat password' autocomplete='new-password'>
 <div class='btnrow'><button id='lb'>Save login</button><button id='lrm'>Reset to admin / admin</button></div></div></div>
@@ -165,7 +165,7 @@ function render(){
  if(!st)return;
  var w=st.canWrite||st.loginSet; // with a login set, a change makes the browser ask for it (over USB too)
  $('ro').style.display=st.canWrite?'none':'flex';
- $('rotext').innerHTML=st.loginSet?'Changes over Wi-Fi need the login (the browser asks for it'+(st.defaultLogin?'; default admin / admin':'')+').':'View only over Wi-Fi. To change settings from here, set a login on the phone (Network &gt; Login), or use <code>http://127.0.0.1:8020/settings</code> on the PC the phone is plugged into.';
+ $('rotext').innerHTML=st.loginSet?'Changes need the login (the browser asks for it'+(st.defaultLogin?'; default admin / admin':'')+').':'View only. To change settings, set a login on the phone (Network &gt; Login).';
  $('loginb').style.display=!st.canWrite&&st.loginSet?'inline-block':'none';
  if(st.version)$('ver').textContent='v'+st.version;
  var fm=/^(\d+) x (\d+) @ (\d+)/.exec(st.format||'');
@@ -203,7 +203,7 @@ function render(){
   +'</div></div>';
  var nh='';
  if(st.alert)nh+=notice(st.alert,true,st.safeMode&&w?'<button id=\'engine\'>Return to normal</button>':'');
- if(st.defaultLogin)nh+=notice('Default login admin / admin in use for changes over Wi-Fi. Change it under Network > Login.',false);
+ if(st.defaultLogin)nh+=notice('Default login admin / admin in use for settings changes. Change it under Network > Login.',false);
  if(st.chargerNotice)nh+=notice(st.chargerNotice,false);
  if(st.unplugLeftSec!=null)nh+=notice('The phone is on battery: streaming stops in '+Math.round(st.unplugLeftSec)+' s.',false,w?'<button id=\'keep\'>Keep streaming</button>':'');
  $('warn').innerHTML=nh;
@@ -216,7 +216,7 @@ function render(){
  ['format','bitrate','keyframe','unplug'].forEach(function(i){$(i).disabled=!w});
  var wifi=st.wifi||'',usb='http://127.0.0.1:'+st.usbPort,wf=wifi?'http://'+esc(wifi)+':'+st.logPort:'';
  var ad=function(l,v){return '<div class=\'addr\'><b>'+l+'</b><code>'+v+'</code></div>'};
- $('connect').innerHTML='<div class=\'grp\'><b>USB cable</b>'+ad('Video','tcp://127.0.0.1:'+st.usbPort)+ad('Settings (can change settings)',usb+'/settings')+'</div>'
+ $('connect').innerHTML='<div class=\'grp\'><b>USB cable</b>'+ad('Video','tcp://127.0.0.1:'+st.usbPort)+ad('Settings (changes after logging in)',usb+'/settings')+'</div>'
   +'<div class=\'grp\'><b>Wi-Fi</b>'+(wifi?ad('Video'+(st.wifiVideoOn?' (no login: anyone on the network can watch)':''),st.wifiVideoOn?'tcp://'+esc(wifi)+':'+st.wifiPort:'off (Network &gt; Video over Wi-Fi)')+ad('Settings (changes after logging in)',wf+'/settings'):'<div class=\'sub\'>The phone is not on Wi-Fi.</div>')+'</div>';
  // grouped: the USB addresses together, then the Wi-Fi ones
  var lk=function(paths){var a=function(b,p){return '<a href=\''+b+p+'\' target=\'_blank\'>'+b+p+'</a>'},sp='&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;';
@@ -225,7 +225,7 @@ function render(){
  $('weblinks').innerHTML=lk(['/settings','/status']);
  $('loglinks').innerHTML=lk(['/log']);$('loglinks').className='links'+(st.logOn?'':' off');
  $('statslinks').innerHTML=lk(['/stats']);$('statslinks').className='links'+(st.statsOn?'':' off');
- $('loginstate').textContent=st.defaultLogin?'Default login admin / admin: change it, or anyone on your network can change settings.':'Over Wi-Fi the browser asks for this login before changes'+(st.user?' (user '+st.user+')':'')+'.';
+ $('loginstate').textContent=st.defaultLogin?'Default login admin / admin: change it, or anyone on your network can change settings.':'The browser asks for this login before changes, over USB and Wi-Fi'+(st.user?' (user '+st.user+')':'')+'.';
  $('loginform').style.display=w?'block':'none';$('lrm').style.display=st.defaultLogin?'none':'inline-block';
  if(w&&st.user&&!$('lu').value&&document.activeElement!==$('lu'))$('lu').value=st.user;
  $('camnow').textContent='Now: '+(st.camera||'n/a');

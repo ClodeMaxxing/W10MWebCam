@@ -53,6 +53,14 @@ namespace W10MWebCam
                   "\nSettings  " + (web ? WifiUrl("/settings") + "  (login)" : "(web page off)");
             WifiVideoAddressText.Text = _wifiAddress.Length == 0 ? "Wi-Fi  (not connected)" : "Wi-Fi  tcp://" + _wifiAddress + ":" + WifiPort;
             WifiVideoAddressText.Opacity = wifiVideo ? 1 : 0.4;
+            // Viewer setup: the USB address, and the Wi-Fi one when there is Wi-Fi video
+            string wifiTcp = _wifiAddress.Length > 0 && wifiVideo ? "tcp://" + _wifiAddress + ":" + WifiPort : null;
+            // (label on one line, value below: the phone panel is narrow)
+            ViewerObsText.Text = "Input\n  tcp://127.0.0.1:" + UsbPort + (wifiTcp != null ? "\n  " + wifiTcp + "  (Wi-Fi)" : "") +
+                                 "\nInput format\n  h264\nFFmpeg options\n  fflags=nobuffer flags=low_delay analyzeduration=0 probesize=500000";
+            ViewerVlcText.Text = "Edit Options\n  :demux=h264\nOr a command\n  vlc --demux=h264 tcp://127.0.0.1:" + UsbPort +
+                                 (wifiTcp != null ? "\n  vlc --demux=h264 " + wifiTcp : "");
+            ViewerFfplayText.Text = "ffplay -fflags nobuffer -flags low_delay -f h264 tcp://127.0.0.1:" + UsbPort;
             WebPageAddressText.Text = "USB    " + UsbUrl("/settings") + "\n       " + UsbUrl("/status") +
                                       "\nWi-Fi  " + WifiUrl("/settings") + "\n       " + WifiUrl("/status");
             LogPageAddressText.Text = "USB    " + UsbUrl("/log") + "\nWi-Fi  " + WifiUrl("/log");

@@ -237,7 +237,7 @@
                 <Grid>
                     <TextBlock Text="CONNECT FROM THE PC" Style="{StaticResource TileLabel}" Margin="0,4,0,0" />
                     <Button Style="{StaticResource InfoButton}"><Button.Flyout><Flyout><TextBlock Style="{StaticResource InfoText}"
-                        Text="USB addresses (127.0.0.1) work on the PC the phone is plugged into. Wi-Fi addresses work from any device on the same network. OBS: Media Source, Input Format h264. VLC: Media > Open Network Stream, then add :demux=h264 under Show more options > Edit Options. Settings can be changed over USB, or over Wi-Fi after logging in (Network > Login)." /></Flyout></Button.Flyout></Button>
+                        Text="USB addresses (127.0.0.1) work on the PC the phone is plugged into; Wi-Fi addresses from any device on the same network. How to open the video in OBS, VLC or ffplay: see Viewer setup below. Settings can be changed over USB, or over Wi-Fi after logging in." /></Flyout></Button.Flyout></Button>
                 </Grid>
                 <Border Style="{StaticResource Tile}" Margin="0,2,0,2">
                     <StackPanel>
@@ -373,6 +373,33 @@
                     <TextBox x:Name="UserBox" PlaceholderText="User name (admin)" Margin="0,0,0,4" />
                     <PasswordBox x:Name="PassBox" PlaceholderText="New password (empty = admin / admin)" Margin="0,0,0,4" />
                     <Button x:Name="SaveLoginButton" Content="Save login" HorizontalAlignment="Stretch" Click="SaveLoginButton_Click" Margin="0,0,0,6" />
+                </StackPanel>
+
+                <!-- Viewer setup: the same as the settings page's section, for opening the video in OBS, VLC or ffplay. -->
+                <Button Style="{StaticResource FoldButton}" Tag="ViewerPanel|VIEWER SETUP" Content="VIEWER SETUP  &#x25B8;" Click="Fold_Click" />
+                <StackPanel x:Name="ViewerPanel" Visibility="Collapsed">
+                    <TextBlock Style="{StaticResource Note}" Margin="0,2,0,6"
+                        Text="Which address: USB addresses (127.0.0.1) work only on the PC the phone is plugged into; Wi-Fi addresses from any device on the same network (see Connect above). 4K at Auto bitrate needs about 37 Mbps: use the USB cable, or 1080p / a lower bitrate over Wi-Fi. The video is raw H.264 with no container, so players must be told the format, as below." />
+
+                    <TextBlock Text="OBS STUDIO (AS A WEBCAM)" Style="{StaticResource TileLabel}" Margin="0,4,0,2" />
+                    <TextBlock Style="{StaticResource Note}" Text="Add a Media Source, untick Local File, then:" />
+                    <Border Style="{StaticResource Tile}" Margin="0,3,0,3">
+                        <TextBlock x:Name="ViewerObsText" IsTextSelectionEnabled="True" TextWrapping="Wrap" FontFamily="Consolas" FontSize="11" Foreground="#D6E8D9" />
+                    </Border>
+                    <TextBlock Style="{StaticResource Note}" Margin="0,0,0,6"
+                        Text="Tick Restart playback when source becomes active. Then Start Virtual Camera and choose OBS Virtual Camera in your video app." />
+
+                    <TextBlock Text="VLC" Style="{StaticResource TileLabel}" Margin="0,4,0,2" />
+                    <TextBlock Style="{StaticResource Note}"
+                        Text="Media > Open Network Stream, enter the video address, tick Show more options and add this to Edit Options (without it VLC connects but never plays):" />
+                    <Border Style="{StaticResource Tile}" Margin="0,3,0,3">
+                        <TextBlock x:Name="ViewerVlcText" IsTextSelectionEnabled="True" TextWrapping="Wrap" FontFamily="Consolas" FontSize="11" Foreground="#D6E8D9" />
+                    </Border>
+
+                    <TextBlock Text="FFPLAY (QUICK TEST)" Style="{StaticResource TileLabel}" Margin="0,6,0,2" />
+                    <Border Style="{StaticResource Tile}" Margin="0,3,0,6">
+                        <TextBlock x:Name="ViewerFfplayText" IsTextSelectionEnabled="True" TextWrapping="Wrap" FontFamily="Consolas" FontSize="11" Foreground="#D6E8D9" />
+                    </Border>
                 </StackPanel>
 
                 <Button Style="{StaticResource FoldButton}" Tag="DetailsPanel|DETAILS AND LOG" Content="DETAILS AND LOG  &#x25B8;" Click="Fold_Click" />

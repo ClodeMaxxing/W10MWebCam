@@ -82,7 +82,7 @@ Stream, enter the address, tick *Show more options* and add `:demux=h264` to *Ed
 Both use the same green look as W10MSecurityCam and W10MDashcam. At the top: **Start/Stop streaming** and the
 **status card** (state, resolution, viewers, fps and Mbps, and tiles for battery, Wi-Fi, temperature, phone and app CPU,
 memory, engine, latency and power). Red notices are for heat and safe mode, amber ones for the charger. The settings fold
-away in sections (Video, Camera, Power, Network, Details and log); the (i) buttons explain each one. On the settings page, hover
+away in sections (Video, Camera, Power, Network, Viewer setup, Details and log); the (i) buttons explain each one. On the settings page, hover
 or tap a tile or an (i) for its explanation; folded sections are remembered in that browser.
 
 On the phone and on the settings page:

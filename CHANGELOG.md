@@ -60,7 +60,7 @@ Renamed from LumiaCam, and the improvements from its forks (W10MSecurityCam 1.1,
 - The settings page's Network section shows each switch's real state (ON / OFF), also when it can't change it.
 - **Clearer addresses:** the phone's main screen shows only the video and settings addresses, grouped USB cable / Wi-Fi;
   the Network section and the settings page list every page's USB and Wi-Fi address under its switch. The settings page
-  has a Connect section with the same grouping, and a Viewer setup section for OBS, VLC (`:demux=h264`) and ffplay.
+  has a Connect section with the same grouping, and a Viewer setup section for OBS, VLC (`:demux=h264`) and ffplay, on the page and on the phone.
 - **Return to normal mode** button on the phone's red safe-mode notice (it was only on the settings page).
 - Tools: `Crash-Dumps.ps1` with `Enable-Crash-Dumps.cmd` / `Get-Crash-Dump.cmd` for Windows crash dumps through Device
   Portal; `Get-Phone-Log.cmd` reads /log and says when the log page is off.

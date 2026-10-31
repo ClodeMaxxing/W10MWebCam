@@ -90,7 +90,7 @@ namespace W10MWebCam
             _tuning.Log = Log;
             SetUpWeb();
             _server.Http = _http;
-            _logServer = new LogServer(_http);
+            _logServer = new LogServer(_http) { Log = Log };
             _statsTimer.Tick += StatsTimer_Tick;
             _wakeTimer.Tick += WakeTimer_Tick;
             Window.Current.VisibilityChanged += (s, e) => { if (!e.Visible) Log("App hidden (screen locked or switched away)"); };

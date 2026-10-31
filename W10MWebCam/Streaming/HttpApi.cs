@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices.WindowsRuntime;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Windows.Storage.Streams;
 
@@ -181,26 +182,32 @@ namespace W10MWebCam.Streaming
         public static async Task<HttpRequest> ReadAsync(IInputStream input, byte[] already, bool fromUsb, string remoteIp)
         {
             var data = new List<byte>(already ?? new byte[0]);
-            int headerEnd = -1, bodyLen = 0;
-            var deadline = DateTime.UtcNow.AddSeconds(10);
-            while (true)
+            int headerEnd = -1, bodyLen = 0, scanned = 0;
+            // 10 s for the whole request; the read itself is cancelled, so a client that sends nothing more is cut off too
+            using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10)))
             {
-                if (headerEnd < 0)
+                while (true)
                 {
-                    headerEnd = IndexOfBlankLine(data);
-                    if (headerEnd >= 0)
+                    if (headerEnd < 0)
                     {
-                        var m = System.Text.RegularExpressions.Regex.Match(Encoding.ASCII.GetString(data.ToArray(), 0, headerEnd), @"(?im)^Content-Length:\s*(\d+)");
-                        if (m.Success && !int.TryParse(m.Groups[1].Value, out bodyLen)) return null;
-                        if (bodyLen < 0 || bodyLen > 64 * 1024) return null;
+                        headerEnd = IndexOfBlankLine(data, scanned);
+                        scanned = Math.Max(0, data.Count - 3); // next time only the new bytes (a blank line can span two reads)
+                        if (headerEnd >= 0)
+                        {
+                            var m = System.Text.RegularExpressions.Regex.Match(Encoding.ASCII.GetString(data.ToArray(), 0, headerEnd), @"(?im)^Content-Length:\s*(\d+)");
+                            if (m.Success && !int.TryParse(m.Groups[1].Value, out bodyLen)) return null;
+                            if (bodyLen < 0 || bodyLen > 64 * 1024) return null;
+                        }
                     }
+                    if (headerEnd >= 0 && data.Count >= headerEnd + 4 + bodyLen) break;
+                    if (data.Count > 128 * 1024) return null;
+                    var buf = new Windows.Storage.Streams.Buffer(4096);
+                    IBuffer got;
+                    try { got = await input.ReadAsync(buf, 4096, InputStreamOptions.Partial).AsTask(cts.Token); }
+                    catch (OperationCanceledException) { return null; }
+                    if (got.Length == 0) return null;
+                    data.AddRange(got.ToArray());
                 }
-                if (headerEnd >= 0 && data.Count >= headerEnd + 4 + bodyLen) break;
-                if (data.Count > 128 * 1024 || DateTime.UtcNow > deadline) return null;
-                var buf = new Windows.Storage.Streams.Buffer(4096);
-                var got = await input.ReadAsync(buf, 4096, InputStreamOptions.Partial);
-                if (got.Length == 0) return null;
-                data.AddRange(got.ToArray());
             }
             var bytes = data.ToArray();
             string head = Encoding.UTF8.GetString(bytes, 0, headerEnd);
@@ -215,9 +222,9 @@ namespace W10MWebCam.Streaming
             return Parse(lines[0], headers, body, fromUsb, remoteIp);
         }
 
-        private static int IndexOfBlankLine(List<byte> d)
+        private static int IndexOfBlankLine(List<byte> d, int from)
         {
-            for (int i = 0; i + 3 < d.Count; i++)
+            for (int i = from; i + 3 < d.Count; i++)
                 if (d[i] == '\r' && d[i + 1] == '\n' && d[i + 2] == '\r' && d[i + 3] == '\n') return i;
             return -1;
         }

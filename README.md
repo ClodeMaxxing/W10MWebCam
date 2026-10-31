@@ -58,9 +58,15 @@ Over Wi-Fi the page, the log and `/status` can be viewed by anyone on your netwo
 
 Quick test without OBS: `ffplay -fflags nobuffer -flags low_delay -f h264 tcp://127.0.0.1:8020`
 
-## Settings
+## Phone screen and settings page
 
-On the phone (right-hand panel) and on the settings page:
+Both use the same green look as W10MSecurityCam and W10MDashcam. At the top: **Start/Stop streaming** and the
+**status card** (state, resolution, viewers, fps and Mbps, and tiles for battery, Wi-Fi, temperature, phone and app CPU,
+memory, engine, latency and power). Red notices are for heat and safe mode, amber ones for the charger. The settings fold
+away in sections (Video, Camera, Power, Details and log); the (i) buttons explain each one. On the settings page, hover
+or tap a tile or an (i) for its explanation; folded sections are remembered in that browser.
+
+On the phone and on the settings page:
 
 | Setting | What it does | Suggested |
 |---|---|---|
@@ -81,9 +87,9 @@ On the phone (right-hand panel) and on the settings page:
 Changing resolution, bitrate, keyframe or stabilization while streaming restarts the stream for a moment; OBS
 reconnects by itself.
 
-The status line shows fps, Mbps, viewers, the engine (`low-latency` normally, `MP4` as a fallback) and the delay from
-the sensor to the encoded frame. Below it: battery, power flow and CPU use, and a yellow notice when something needs
-attention.
+The engine tile reads *Fast* for the low-latency engine and *Safe mode* for the MP4 fallback; *Latency* is the delay
+from the camera sensor to the encoded frame inside the phone. The full power readout and the log are under
+*Details and log*.
 
 ## Power and heat
 

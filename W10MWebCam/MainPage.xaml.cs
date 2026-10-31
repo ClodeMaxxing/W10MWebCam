@@ -83,7 +83,7 @@ namespace W10MWebCam
             LaunchSelfCheck();
             InitializeComponent();
 
-            TitleText.Text = "W10MWebCam " + AppVersion;
+            VersionText.Text = "v" + AppVersion;
 
             Application.Current.UnhandledException += (s, e) => Log("CRASH (unhandled): " + e.Exception);
             _server.Log = Log;
@@ -455,20 +455,15 @@ namespace W10MWebCam
         private void UpdateStats()
         {
             if (_camera == null) return;
-            if (!_camera.IsStreaming)
+            bool streaming = _camera.IsStreaming;
+            if (streaming)
             {
-                StatsText.Text = "Idle · viewers: " + _server.ClientCount + (_safeMode ? "\nSAFE MODE (standard engine this launch)" : "");
-                return;
+                _camera.UpdateStats();
+                CheckStall();
+                if (_startedAt != DateTime.MinValue && (DateTime.Now - _startedAt).TotalSeconds > 15)
+                    ClearStartFlag(); // ran fine for 15 s
             }
-            _camera.UpdateStats();
-            CheckStall();
-            if (_startedAt != DateTime.MinValue && (DateTime.Now - _startedAt).TotalSeconds > 15)
-                ClearStartFlag(); // ran fine for 15 s
-
-            StatsText.Text = string.Format("{0:0} fps · {1:0.0} Mbps · viewers: {2}\nEngine: {3}{4}{5}",
-                _camera.Fps, _camera.Mbps, _server.ClientCount, _camera.PathName,
-                _camera.LastLatencyMs >= 0 ? " · sensor→encoded " + _camera.LastLatencyMs + " ms" : "",
-                _protect ? "\nHeat protection: lowered to " + EffectiveVideo()?.Item1 : "");
+            UpdateStatusCard(streaming);
         }
 
         /// <summary>If the low-latency engine stops delivering frames, restart; after two stalls, use the MP4 engine.</summary>

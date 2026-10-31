@@ -22,6 +22,7 @@ W10MWebCam/                      C# UWP app (.NET Native, ARM), SDK 10.0.19041, 
   MainPage.Camera.cs             focus / exposure / white balance, focus once, flashlight, camera power saving
   MainPage.Power.cs              power readout, charger notice, heat detection + optional step-down, stop on power loss
   MainPage.Web.cs                /status and /settings/state JSON, applying /settings/set through the phone's controls
+  MainPage.Status.cs             status card (tiles, badges, meters), folding sections, cached brushes (theme from W10MDashcam)
   Streaming/CameraEngine.cs      MediaCapture setup, format list, encoder profile, engine selection, frame handler
   Streaming/CameraTuning.cs      camera controls (ported from W10MSecurityCam)
   Streaming/PowerMonitor.cs      battery flow and CPU (ported from W10MSecurityCam)

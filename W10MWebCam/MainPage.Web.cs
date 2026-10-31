@@ -75,6 +75,13 @@ namespace W10MWebCam
             }
             catch { }
             o["heat"] = Str(_heat);
+            var hb = HeatBadge();
+            o["heatBadge"] = Str(hb.Item1);
+            o["heatLevel"] = Num(hb.Item2);
+            o["alert"] = Str(_alert);
+            o["chargerNotice"] = Str(_chargerNotice);
+            o["batteryFalling"] = Bool(BatteryFalling);
+            o["wifiBars"] = Num(WifiBars() >= 0 ? (double?)WifiBars() : null);
             o["protect"] = Bool(_protect);
             o["notice"] = Str(_notice);
             o["torchOn"] = Bool(_torchWanted);

@@ -1,8 +1,9 @@
 namespace W10MWebCam.Streaming
 {
     /// <summary>
-    /// The settings page (http://127.0.0.1:8020/settings over USB, http://PHONE-IP:5001/settings over Wi-Fi, view only).
-    /// Plain HTML and a little script; it polls /settings/state every 2 s and posts changes to /settings/set.
+    /// The settings page (http://127.0.0.1:8020/settings over USB, http://PHONE-IP:5001/settings over Wi-Fi, view only),
+    /// in the green theme shared with W10MSecurityCam and W10MDashcam. Plain HTML and a little script; it polls
+    /// /settings/state every 2 s and posts changes to /settings/set.
     /// The page source avoids double quotes so it can live in a C# verbatim string.
     /// </summary>
     internal static class WebPage
@@ -11,91 +12,105 @@ namespace W10MWebCam.Streaming
 <html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>
 <title>W10MWebCam</title>
 <style>
-:root{--bg:#0d0f12;--card:#161a20;--line:#262c35;--text:#e6e9ee;--dim:#8b95a3;--acc:#7fb2e5;--ok:#4cc38a;--warn:#e8c547;--bad:#ef6b6b}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 'Segoe UI',system-ui,sans-serif}
-main{max-width:720px;margin:0 auto;padding:16px}
-header{display:flex;align-items:center;gap:10px;margin-bottom:12px}
-header h1{font-size:20px;margin:0;font-weight:600}
-#ver{color:var(--dim);font-size:13px}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#000;color:#d6e8d9;margin:0;padding:16px;max-width:520px}
+h1{font-size:19px;margin:0 0 4px;display:flex;justify-content:space-between;align-items:baseline;color:#e4f5e7;letter-spacing:.3px}
+#ver{font-size:12px;font-weight:bold;color:#39ff14;text-shadow:0 0 6px rgba(57,255,20,.45)}
+.sub{color:#7f9a86;font-size:12px;margin:4px 0;word-break:break-word}
+.row{margin:12px 0}.head{display:flex;justify-content:space-between;align-items:center;font-size:14px}
+input[type=range]{width:100%;accent-color:#3fbf5f}input[type=range]:disabled{opacity:.35}input[type=checkbox]{accent-color:#3fbf5f}
+select{background:#0d140f;color:#d6e8d9;border:1px solid #1f3a26;border-radius:4px;padding:6px;font-size:14px}
+button{background:#123320;color:#cfffd8;border:1px solid #2e7d46;border-radius:6px;padding:8px 12px;font-size:14px;margin-top:6px;cursor:pointer}
+button:hover:not(:disabled){background:#18452b;box-shadow:0 0 8px rgba(63,191,95,.35)}
+button:disabled,select:disabled,input:disabled{opacity:.35;cursor:default}
+label{font-size:13px;color:#b9cfbd}#msg{color:#9cf0b0;font-size:12px;min-height:16px;margin-top:10px}
+h2{font-size:13px;color:#9cf0b0;background:#0b1a10;text-transform:uppercase;letter-spacing:1px;border:1px solid #1f3a26;border-left:3px solid #3fbf5f;border-radius:4px;padding:8px 10px;margin:18px 0 6px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none}
+h2 .ar{font-size:16px;color:#3fbf5f;padding:0 4px}
+.card{background:linear-gradient(180deg,#07140b,#030805);border:1px solid #1f3a26;border-radius:8px;padding:10px 12px;margin-top:6px}
+.top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .dot{width:10px;height:10px;border-radius:50%;background:#555;flex:none}
-.dot.on{background:var(--ok);box-shadow:0 0 8px var(--ok)}.dot.hot{background:var(--bad);box-shadow:0 0 8px var(--bad)}
-#state{margin-left:auto;font-size:13px;color:var(--dim)}
-section{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin:10px 0}
-h2{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--acc);margin:0 0 8px;font-weight:600}
-.big{font:600 26px Consolas,'Cascadia Mono',monospace}.big small{font-size:12px;color:var(--dim);margin:0 14px 0 4px;font-weight:400}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-top:8px}
-.tile{background:#11151a;border:1px solid var(--line);border-radius:6px;padding:6px 8px;min-width:0}
-.tile b{display:block;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--dim);font-weight:600}
-.tile span{display:block;font:13px Consolas,'Cascadia Mono',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tile.warn span{color:var(--bad)}
-.notice{border-left:3px solid var(--warn);background:#2a2610;color:#f0e0a0;padding:8px 10px;border-radius:4px;margin-top:8px;font-size:13px}
-.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0}
-.row label.grow{flex:1;min-width:150px}
-select,button{font:inherit;color:var(--text);background:#11151a;border:1px solid var(--line);border-radius:6px;padding:6px 10px}
-select{min-width:150px}
-button{cursor:pointer}button:hover:not(:disabled){border-color:var(--acc)}
-button.primary{background:#1d3550;border-color:#2d5580}
-button:disabled,select:disabled,input:disabled{opacity:.4;cursor:default}
-input[type=range]{width:100%;accent-color:var(--acc)}input[type=checkbox]{accent-color:var(--acc);width:16px;height:16px;vertical-align:-3px}
-.slider{margin:10px 0}.slider .head{display:flex;justify-content:space-between;align-items:center}
-.note{color:var(--dim);font-size:12px}
-code{font:13px Consolas,'Cascadia Mono',monospace;background:#0b0e12;border:1px solid var(--line);border-radius:4px;padding:1px 6px;user-select:all}
-#msg{min-height:20px;color:var(--acc);font-size:13px;margin-top:6px}
-#ro{display:none;color:var(--warn)}
-.cols{display:grid;grid-template-columns:1fr 1fr;gap:0 18px}
-@media (max-width:560px){.cols{grid-template-columns:1fr}.big{font-size:22px}}
-</style></head><body><main>
-<header><span id='dot' class='dot'></span><h1>W10MWebCam</h1><span id='ver'></span><span id='state'>connecting...</span></header>
-<div id='ro' class='notice'>View only: settings can be changed only from the PC the phone is plugged into, at <code>http://127.0.0.1:8020/settings</code>.</div>
+.dot.on{background:#39ff14;box-shadow:0 0 8px #39ff14;animation:pulse 2s ease-in-out infinite}
+.dot.hot{background:#ff5555;box-shadow:0 0 8px #ff5555;animation:pulse 1s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.state{font-weight:600;letter-spacing:1px;font-size:13px;text-transform:uppercase;color:#9cf0b0}
+.pill{font-size:11px;color:#9cf0b0;border:1px solid #2e7d46;border-radius:10px;padding:1px 8px;background:#0b1a10}
+.pill.r{margin-left:auto}
+.big{font-family:Consolas,'Cascadia Mono',monospace;font-size:22px;color:#e4f5e7;margin:8px 0 2px}
+.big small{font-size:12px;color:#7f9a86;margin:0 10px 0 3px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}
+.tile{background:#0b1a10;border:1px solid #16301e;border-radius:6px;padding:6px 8px;min-width:0}
+.tile b{display:block;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:#6f8f77;font-weight:600}
+.tile span{font-family:Consolas,'Cascadia Mono',monospace;font-size:13px;color:#d6e8d9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+.tile.warn span{color:#ff8a8a}
+.meter{height:6px;background:#06100a;border:1px solid #1f3a26;border-radius:3px;overflow:hidden;margin-top:4px}
+.meter>div{height:100%;background:linear-gradient(90deg,#2fa84f,#39ff14);border-radius:2px}
+.meter.mid>div{background:linear-gradient(90deg,#b8a02f,#e8d040)}.meter.low>div{background:linear-gradient(90deg,#a83232,#ff5555)}
+.batt{display:flex;align-items:center;gap:2px;margin-top:4px}.batt .meter{flex:1;height:10px;margin:0;border-radius:3px}
+.batt .cap{width:3px;height:5px;background:#2e7d46;border-radius:0 2px 2px 0}
+.bars{display:flex;align-items:flex-end;gap:3px;height:14px;margin-top:4px}.bars i{display:block;width:6px;background:#16301e;border-radius:1px;margin:0}
+.bars i.on{background:#39ff14;box-shadow:0 0 4px rgba(57,255,20,.5)}.bars.weak i.on{background:#e8d040;box-shadow:none}
+.tile.warn .meter>div,.tile.warn .bars i.on{background:#ff5555;box-shadow:none}
+.tile[data-tip]{cursor:help}
+.notice{display:flex;align-items:center;gap:8px;margin-top:8px;padding:7px 10px;border:1px solid #7d6e2e;border-left:3px solid #e8d040;border-radius:6px;background:#1a1808;color:#e8d8a0;font-size:12px}
+.notice .ni{flex:none;width:16px;height:16px;line-height:16px;text-align:center;border-radius:50%;background:#e8d040;color:#1a1808;font-weight:bold;font-size:11px}
+.notice code,.addr code{font-family:Consolas,'Cascadia Mono',monospace}
+.notice.bad{border-color:#7d2e2e;border-left-color:#ff5555;background:#1a0808;color:#ffb0b0}.notice.bad .ni{background:#ff5555;color:#1a0808}
+.notice button{margin:0 0 0 auto;padding:4px 10px;font-size:12px}
+.badge{display:inline-flex;align-items:center;gap:6px;margin-top:5px;padding:2px 9px 2px 7px;border-radius:11px;font-size:12px;font-weight:600;letter-spacing:.3px;border:1px solid #2e7d46;color:#39ff14;background:#0f2a17}
+.badge::before{content:'';width:8px;height:8px;border-radius:50%;background:currentColor;box-shadow:0 0 6px currentColor}
+.badge.mid{color:#e8d040;border-color:#7d6e2e;background:#2a2610}.badge.bad{color:#ff5555;border-color:#7d2e2e;background:#2a1010}
+.badge.bad::before{animation:pulse 1s ease-in-out infinite}
+.tip{display:inline-block;width:15px;height:15px;line-height:15px;text-align:center;border-radius:50%;border:1px solid #2e7d46;color:#3fbf5f;font-size:10px;font-style:normal;font-weight:bold;cursor:help;margin-left:6px;vertical-align:middle}
+#tipbox{position:fixed;display:none;max-width:260px;background:#0b1a10;border:1px solid #2e7d46;color:#d6e8d9;padding:8px 10px;border-radius:6px;font-size:12px;line-height:1.45;z-index:50;box-shadow:0 6px 16px rgba(0,0,0,.7);pointer-events:none}
+.vrow{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.vrow select{flex:1 1 30%;min-width:0}
+.btnrow{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.addr{margin:8px 0}.addr b{display:block;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#6f8f77}
+.addr code{display:block;font-size:13px;color:#e4f5e7;background:#030805;border:1px solid #16301e;border-radius:4px;padding:6px 8px;margin-top:3px;word-break:break-all;user-select:all}
+#ro{display:none}
+</style></head><body>
+<h1><span>W10MWebCam</span><span id='ver'></span></h1>
+<div class='notice' id='ro'><span class='ni'>i</span><span>View only. Settings can be changed from the PC the phone is plugged into, at <code>http://127.0.0.1:8020/settings</code>.</span></div>
 
-<section><h2>Status</h2>
-<div class='big' id='big'></div>
-<div class='grid' id='tiles'></div>
-<div id='notice'></div>
-<div class='row' id='saferow' style='display:none'><span class='note'>Safe mode: the standard (MP4) engine is in use for this launch.</span><button id='engine'>Return to the low-latency engine</button></div>
-<div class='row' id='unplugrow' style='display:none'><span class='notice' id='unplugtext' style='margin:0'></span><button id='keep'>Keep streaming</button></div>
-</section>
+<h2>Status</h2>
+<div class='row'><div id='stat'>loading...</div><div id='warn'></div></div>
 
-<section><h2>Video</h2>
-<div class='row'><button id='stream' class='primary'>Start streaming</button><span class='note' id='streamnote'></span></div>
-<div class='cols'>
-<div class='row'><label class='grow'>Resolution<br><select id='format'></select></label></div>
-<div class='row'><label class='grow'>Bitrate<br><select id='bitrate'></select></label></div>
-<div class='row'><label class='grow'>Keyframe every<br><select id='keyframe'></select></label></div>
-</div>
-<div class='note'>Changing these restarts the stream for a moment; OBS reconnects by itself.</div>
-</section>
-
-<section><h2>Camera</h2>
-<div class='note' id='camnow'></div>
-<div class='row'><label><input type='checkbox' id='camauto'> Automatic focus, exposure and white balance</label></div>
-<div class='slider'><div class='head'><span id='fl'>Focus</span><label><input type='checkbox' id='fa'> Auto</label></div>
-<input type='range' id='fs' min='0' max='100' step='1'>
-<div class='row'><button id='fonce'>Focus once and lock</button><label><input type='checkbox' id='sf'> Hold focus once it has settled</label></div></div>
-<div class='slider'><div class='head'><span id='el'>Exposure</span><label><input type='checkbox' id='ea'> Auto</label></div>
-<input type='range' id='es' min='0' max='100' step='0.5'></div>
-<div class='slider'><div class='head'><span id='wl'>White balance</span><label><input type='checkbox' id='wa'> Auto</label></div>
-<input type='range' id='ws' min='2000' max='8000' step='100'></div>
-<div class='row'><label><input type='checkbox' id='torch'> Flashlight</label><span class='note' id='torchnote'></span></div>
-<div class='row'><label><input type='checkbox' id='ois'> Stabilization off (fixed mount: less processing and heat; restarts the stream)</label></div>
-</section>
-
-<section><h2>Phone and power</h2>
-<div class='row'><label><input type='checkbox' id='powersave'> Black out the phone screen while streaming (saves battery, lets it charge)</label></div>
+<h2>Video</h2>
+<div class='row'>
+<div class='vrow'><select id='format' data-tip='Resolution and frame rate'></select><select id='bitrate' data-tip='Bitrate. Auto is about 37 Mbps at 4K30 and 9 Mbps at 1080p30; USB carries 60+ Mbps.'></select></div>
+<div class='vrow' style='margin-top:6px'><label>Keyframe every <select id='keyframe'></select></label><i class='tip' data-tip='A full picture this often. Shorter: OBS joins and recovers faster, at slightly more data. It does not change the delay.'>i</i></div>
+<div class='btnrow' style='margin-top:6px'><button id='stream'>Start stream</button><button id='addrb'>Stream addresses</button></div>
+<div class='sub'>Changing these restarts the stream for a moment; OBS reconnects by itself.</div>
+<div id='addrs' style='display:none'></div>
 <div class='row'><label><input type='checkbox' id='autostart'> Start streaming when the app opens</label></div>
-<div class='row'><label><input type='checkbox' id='preview'> Preview on the phone (applies when the stream is stopped or restarted)</label></div>
-<div class='row'><label><input type='checkbox' id='heatauto'> Lower to 1080p / 6 Mbps automatically if the phone overheats</label></div>
-<div class='row'><label>When unplugged, stop streaming after <select id='unplug'></select></label></div>
-</section>
+<div class='row'><label><input type='checkbox' id='preview'> Preview on the phone</label><i class='tip' data-tip='Shown when the screen is not blacked out. Changes apply when the stream is stopped or restarted: switching the preview during a 4K stream can stall it.'>i</i></div>
+</div>
 
-<section><h2>Connect</h2>
-<div class='note'>OBS: Media Source, untick Local File, Input <code>tcp://127.0.0.1:8020</code>, Input Format <code>h264</code>,
-FFmpeg options <code>fflags=nobuffer flags=low_delay analyzeduration=0 probesize=500000</code>.</div>
-<div class='note' id='wifi' style='margin-top:6px'></div>
-</section>
-<div id='msg'></div>
+<h2>Camera</h2>
+<div class='sub' id='camnow'></div>
+<div class='row'><label><input type='checkbox' id='camauto'> Automatic focus, exposure and white balance</label></div>
+<div class='row'><div class='head'><span id='fl'>Focus</span><label><input type='checkbox' id='fa'> Auto</label></div>
+<input type='range' id='fs' min='0' max='100' step='1'>
+<div class='btnrow'><button id='fonce'>Focus once and lock</button></div></div>
+<div class='row'><div class='head'><span id='el'>Exposure</span><label><input type='checkbox' id='ea'> Auto</label></div>
+<input type='range' id='es' min='0' max='100' step='0.5'></div>
+<div class='row'><div class='head'><span id='wl'>White balance</span><label><input type='checkbox' id='wa'> Auto</label></div>
+<input type='range' id='ws' min='2000' max='8000' step='100'></div>
+<div class='row'><div class='head'><span>Flashlight<i class='tip' data-tip='Only while streaming. Switches off by itself after 30 seconds: the LED heats the phone quickly and this phone cannot dim it.'>i</i></span><label><input type='checkbox' id='torch'> On</label></div>
+<div class='sub' id='torchnote'></div></div>
+<div class='row'><label><input type='checkbox' id='ois'> Stabilization off (fixed mount)</label><i class='tip' data-tip='For a phone on a tripod or mount: less processing and heat. Changing it restarts the stream once.'>i</i></div>
+<div class='row'><label><input type='checkbox' id='sf'> Hold focus once it has settled</label><i class='tip' data-tip='Parks the lens after autofocus settles, so it stops hunting. Not for a subject that moves toward or away from the camera.'>i</i></div>
 
+<h2>Power</h2>
+<div class='row'><label><input type='checkbox' id='powersave'> Black screen while streaming</label><i class='tip' data-tip='Black OLED screen at minimum brightness: saves battery and lets the phone charge while it streams 4K.'>i</i></div>
+<div class='row'><label><input type='checkbox' id='heatauto'> Lower to 1080p if the phone overheats</label><i class='tip' data-tip='When charging pauses on a good charger for 20 s the battery is hot. Off: only a warning. On: the stream drops to 1080p / 6 Mbps until charging has resumed (at least 3 minutes); your own settings stay as they are.'>i</i></div>
+<div class='row'><label>When unplugged, stop streaming after <select id='unplug'></select></label><i class='tip' data-tip='A countdown shows on the phone when it goes on battery while streaming; when it ends the stream stops. It starts again when the power returns.'>i</i></div>
+
+<h2>OBS setup</h2>
+<div class='row'><div class='sub'>Media Source: untick Local File. Then:</div>
+<div class='addr'><b>Input</b><code>tcp://127.0.0.1:8020</code></div>
+<div class='addr'><b>Input format</b><code>h264</code></div>
+<div class='addr'><b>FFmpeg options</b><code>fflags=nobuffer flags=low_delay analyzeduration=0 probesize=500000</code></div>
+<div class='sub'>Then Start Virtual Camera and choose OBS Virtual Camera in your video app.</div></div>
+<div id='msg'></div><div id='tipbox'></div>
 <script>
 var st=null,busyUntil=0,timer=null;
 function $(i){return document.getElementById(i)}
@@ -108,37 +123,66 @@ function fill(sel,items,idx){
  if(sel.dataset.k!==key){sel.dataset.k=key;sel.innerHTML='';items.forEach(function(t,i){var o=document.createElement('option');o.value=i;o.textContent=t;sel.appendChild(o)})}
  sel.value=idx;
 }
-function tile(label,value,warn){return '<div class=\'tile'+(warn?' warn':'')+'\'><b>'+esc(label)+'</b><span>'+esc(value)+'</span></div>'}
+function meter(p,cls){p=Math.max(0,Math.min(100,p||0));return '<div class=\'meter '+(cls||'')+'\'><div style=\'width:'+p+'%\'></div></div>'}
+function tile(l,v,w,g,tip){return '<div class=\'tile'+(w?' warn':'')+'\''+(tip?' data-tip=\''+esc(tip)+'\'':'')+'><b>'+esc(l)+'</b>'+(v===''?'':'<span>'+esc(v)+'</span>')+(g||'')+'</div>'}
+function badge(t,c){return '<div class=\'badge '+(c||'')+'\'>'+esc(t)+'</div>'}
+function notice(t,bad,btn){return '<div class=\'notice'+(bad?' bad':'')+'\'><span class=\'ni\'>!</span><span>'+esc(t)+'</span>'+(btn||'')+'</div>'}
 function render(){
  if(!st)return;
  var w=st.canWrite;
- $('ro').style.display=w?'none':'block';
- $('ver').textContent='v'+st.version;
- $('dot').className='dot'+(st.protect?' hot':st.streaming?' on':'');
- $('state').textContent=st.protect?'Heat protection':st.streaming?'Streaming '+st.format:'Stopped';
- $('big').innerHTML=st.streaming?esc(Math.round(st.fps))+'<small>fps</small>'+esc(fmt(st.mbps,1))+'<small>Mbps</small>'+esc(st.viewers)+'<small>viewer'+(st.viewers==1?'':'s')+'</small>':'<small>Not streaming</small>';
- var bat=st.battery==null?'n/a':st.battery+' % '+String(st.batteryStatus).toLowerCase();
- var pw=st.netWatts==null?'measuring':(st.netWatts>=0?'+':'')+fmt(st.netWatts,1)+' W';
- var mem=st.memoryMB==null?'n/a':Math.round(st.memoryMB)+' MB';
- $('tiles').innerHTML=tile('Engine',st.safeMode?'standard (safe mode)':(st.engine||'-'),st.safeMode)
-  +tile('Sensor to encoded',st.latencyMs==null?'n/a':st.latencyMs+' ms',st.latencyMs>250)
-  +tile('Keyframe every',st.keyframeSec?fmt(st.keyframeSec,1)+' s':'n/a')
-  +tile('Battery',bat,st.battery!=null&&st.battery<20)
-  +tile('Battery flow',pw,st.netWatts!=null&&st.netWatts<-0.3)
-  +tile('Charger',String(st.charger).toLowerCase(),st.charger=='Inadequate')
-  +tile('Heat',st.heat,st.heat!='Healthy')
-  +tile('CPU phone / app',(st.cpuPhone==null?'?':Math.round(st.cpuPhone))+' % / '+(st.cpuApp==null?'?':Math.round(st.cpuApp))+' %')
-  +tile('App memory',mem);
- $('notice').innerHTML=st.notice?'<div class=\'notice\'>'+esc(st.notice)+'</div>':'';
- $('saferow').style.display=st.safeMode?'flex':'none';$('engine').disabled=!w;
- $('unplugrow').style.display=st.unplugLeftSec!=null?'flex':'none';
- $('unplugtext').textContent='The phone is on battery: streaming stops in '+Math.round(st.unplugLeftSec||0)+' s.';$('keep').disabled=!w;
+ $('ro').style.display=w?'none':'flex';
+ if(st.version)$('ver').textContent='v'+st.version;
+ var fm=/^(\d+) x (\d+) @ (\d+)/.exec(st.format||'');
+ var res=fm?(fm[2]>=2160?'4K':fm[2]+'p')+fm[3]+(st.safeMode?' SAFE':''):'';
+ var state=st.protect&&st.streaming?'Heat protection':st.streaming?'Streaming':'Stopped',dc=st.protect?'dot hot':st.streaming?'dot on':'dot';
+ var up=Math.round(st.uptime/60),upt=up>=120?Math.round(up/6)/10+' h':up+' min';
+ var bp=st.battery==null?0:st.battery,bcls=st.batteryFalling||bp<20?'low':bp<40?'mid':'';
+ var batt='<div class=\'batt\'>'+meter(bp,bcls)+'<span class=\'cap\'></span></div>';
+ var wb=st.wifiBars==null?0:st.wifiBars,bars='<div class=\'bars'+(wb<2?' weak':'')+'\'>';
+ for(var k=1;k<=4;k++)bars+='<i class=\''+(k<=wb?'on':'')+'\' style=\'height:'+(2+k*3)+'px\'></i>';bars+='</div>';
+ var cp=st.cpuPhone==null?null:Math.round(st.cpuPhone),ca=st.cpuApp==null?null:Math.round(st.cpuApp);
+ var ml=st.memoryLimitMB||1536,mp=100*(st.memoryMB||0)/ml;
+ var lat=st.streaming&&st.latencyMs!=null&&st.latencyMs>=0?st.latencyMs:null;
+ var charging=st.batteryStatus=='Charging',pw=null,pl=charging?'Into battery':'Battery draw';
+ if(!charging&&st.drawWatts!=null)pw=Math.abs(st.drawWatts);else if(st.netWatts!=null)pw=charging?st.netWatts:Math.abs(st.netWatts);
+ var pv=pw==null?'measuring':(charging&&pw>=0?'+':'')+pw.toFixed(1)+' W';
+ var pbar=pw==null?meter(0):meter(100*Math.abs(pw)/15,charging?(pw<0?'low':pw<1?'mid':''):(pw>8?'low':'mid'));
+ var eng=st.safeMode?'Safe mode':st.streaming?(st.engine=='low-latency'?'Fast':st.engine):'Ready';
+ var hl=st.heatLevel||0;
+ $('stat').innerHTML='<div class=\'card\'><div class=\'top\'><span class=\''+dc+'\'></span><span class=\'state\'>'+esc(state)+'</span>'
+  +(res&&st.streaming?'<span class=\'pill\'>'+esc(res)+'</span>':'')
+  +'<span class=\'pill\'>up '+esc(upt)+'</span>'
+  +'<span class=\'pill r\'>'+esc(st.viewers+' viewer'+(st.viewers==1?'':'s'))+'</span></div>'
+  +(st.streaming?'<div class=\'big\'>'+esc(Math.round(st.fps))+'<small>fps</small>'+esc(fmt(st.mbps,1))+'<small>Mbps</small></div>':'')
+  +'<div class=\'grid\'>'
+  +tile('Battery',st.battery==null?'n/a':st.battery+'% '+(charging?'chg':String(st.batteryStatus).toLowerCase()),st.batteryFalling,batt)
+  +tile('Wi-Fi',st.wifiBars==null?'off':wb+' of 4',st.wifiBars!=null&&wb<2,bars,'The phone\'s Wi-Fi signal. Over USB the video does not use Wi-Fi.')
+  +tile('Temp','',false,badge(st.heatBadge||'n/a',hl==2?'bad':hl==1?'mid':''),'Windows gives apps no temperature. Hot means charging has paused on a good charger for 20 s, which Windows does when the battery is hot.')
+  +tile('CPU phone',cp==null?'n/a':cp+'%',false,meter(cp,cp>70?'mid':''),'Whole phone. The camera and encoder do most of their work outside the CPU.')
+  +tile('CPU app',ca==null?'n/a':ca+'%',false,meter(ca,ca>50?'mid':''))
+  +tile('Memory',Math.round(st.memoryMB||0)+' MB',mp>80,meter(mp,mp>80?'low':mp>60?'mid':''),'App memory, of '+Math.round(ml)+' MB allowed.')
+  +tile('Engine','',false,badge(eng,eng=='Fast'||eng=='Ready'?'':'mid'),st.safeMode?'Safe mode: the standard MP4 engine, used after a failed start. Reopen the app or use the button to return.':'Fast: the low-latency engine hands each encoded frame straight to the stream.')
+  +tile('Latency',lat==null?'n/a':lat+' ms',lat!=null&&lat>250,meter(lat==null?0:lat/3,lat>250?'low':lat>150?'mid':''),'Camera sensor to encoded frame, measured inside the phone (10 s average). USB and OBS add their own delay.')
+  +tile(pl,pv,st.batteryFalling,pbar,(st.powerText||'')+' Bar scale: 0-15 W.')
+  +'</div></div>';
+ var nh='';
+ if(st.alert)nh+=notice(st.alert,true,st.safeMode&&w?'<button id=\'engine\'>Return to normal</button>':'');
+ if(st.chargerNotice)nh+=notice(st.chargerNotice,false);
+ if(st.unplugLeftSec!=null)nh+=notice('The phone is on battery: streaming stops in '+Math.round(st.unplugLeftSec)+' s.',false,w?'<button id=\'keep\'>Keep streaming</button>':'');
+ $('warn').innerHTML=nh;
+ if($('engine'))$('engine').onclick=function(){send('engine=normal','Switching engine...')};
+ if($('keep'))$('keep').onclick=function(){send('keepstreaming=1')};
  if(Date.now()<busyUntil)return; // don't overwrite what the person is changing
- $('stream').textContent=st.streaming?'Stop streaming':'Start streaming';$('stream').disabled=!w;
- $('streamnote').textContent=st.protect?'Heat protection has lowered the stream; your own settings come back when charging resumes.':'';
- fill($('format'),st.formats,st.formatIndex);fill($('bitrate'),st.bitrates,st.bitrateIndex);fill($('keyframe'),st.keyframes,st.keyframeIndex);
- fill($('unplug'),st.unplugChoices,st.unplugIndex);
+ $('stream').textContent=st.streaming?'Stop stream':'Start stream';$('stream').disabled=!w;
+ fill($('format'),st.formats,st.formatIndex);fill($('bitrate'),st.bitrates.map(function(b){return b=='Auto'?'Bitrate: auto':b}),st.bitrateIndex);
+ fill($('keyframe'),st.keyframes,st.keyframeIndex);fill($('unplug'),st.unplugChoices,st.unplugIndex);
  ['format','bitrate','keyframe','unplug'].forEach(function(i){$(i).disabled=!w});
+ var h=location.hostname,wifi=st.wifi||h;
+ $('addrs').innerHTML='<div class=\'addr\'><b>Video over USB (OBS on this PC)</b><code>tcp://127.0.0.1:'+st.usbPort+'</code></div>'
+  +'<div class=\'addr\'><b>Video over Wi-Fi</b><code>tcp://'+esc(wifi)+':'+st.wifiPort+'</code></div>'
+  +'<div class=\'addr\'><b>This page over USB (can change settings)</b><code>http://127.0.0.1:'+st.usbPort+'/settings</code></div>'
+  +'<div class=\'addr\'><b>This page over Wi-Fi (view only)</b><code>http://'+esc(wifi)+':'+st.logPort+'/settings</code></div>'
+  +'<div class=\'addr\'><b>Live log</b><code>http://127.0.0.1:'+st.usbPort+'/log</code></div>';
  $('camnow').textContent='Now: '+(st.camera||'n/a');
  $('camauto').checked=st.focusAuto&&st.exposureAuto&&st.wbAuto;
  $('fa').checked=st.focusAuto;$('ea').checked=st.exposureAuto;$('wa').checked=st.wbAuto;
@@ -150,10 +194,10 @@ function render(){
  $('wa').disabled=!w||!st.wbSupported;$('ws').disabled=!w||!st.wbSupported||st.wbAuto;
  $('sf').checked=st.saveFocus;$('sf').disabled=!w;
  $('torch').checked=st.torchOn;$('torch').disabled=!w||!st.torchSupported||(!st.streaming&&!st.torchOn);
- $('torchnote').textContent=!st.torchSupported?'not offered by this camera':st.torchOn?'off in '+st.torchLeftSec+' s':!st.streaming?'only while streaming':'switches off after 30 s (it heats the phone)';
+ $('torchnote').textContent=!st.torchSupported?'This camera has no flashlight control.':st.torchOn?'On - switches off in '+st.torchLeftSec+' s.':!st.streaming?'Start the stream to use the flashlight.':'';
  $('ois').checked=st.saveOis;$('ois').disabled=!w||!st.oisSupported;
- ['powersave','autostart','preview','heatauto'].forEach(function(i){$(i).checked=st[i=='powersave'?'powerSave':i=='autostart'?'autoStart':i=='heatauto'?'heatAuto':'preview'];$(i).disabled=!w});
- $('wifi').innerHTML=st.wifi?'Over Wi-Fi: <code>tcp://'+esc(st.wifi)+':'+st.wifiPort+'</code> (video), <code>http://'+esc(st.wifi)+':'+st.logPort+'/settings</code> (this page, view only).':'';
+ $('powersave').checked=st.powerSave;$('autostart').checked=st.autoStart;$('preview').checked=st.preview;$('heatauto').checked=st.heatAuto;
+ ['powersave','autostart','preview','heatauto'].forEach(function(i){$(i).disabled=!w});
  labels();
 }
 function labels(){
@@ -172,13 +216,12 @@ function send(body,note){
 }
 function load(){
  fetch('/settings/state',{cache:'no-store'}).then(function(r){return r.json()}).then(function(j){st=j;render()})
- .catch(function(){$('state').textContent='phone not reachable';$('dot').className='dot'});
+ .catch(function(){$('stat').innerHTML=notice('The phone is not answering. Is the app open and the cable plugged in?',true)});
 }
 function later(body){busyUntil=Date.now()+4000;clearTimeout(timer);timer=setTimeout(function(){send(body)},400)}
 function onoff(b){return b?'on':'off'}
 $('stream').onclick=function(){send('stream='+(st&&st.streaming?'stop':'start'),st&&st.streaming?'Stopping...':'Starting...')};
-$('engine').onclick=function(){send('engine=normal','Switching engine...')};
-$('keep').onclick=function(){send('keepstreaming=1')};
+$('addrb').onclick=function(){var a=$('addrs');a.style.display=a.style.display=='none'?'block':'none'};
 ['format','bitrate','keyframe'].forEach(function(i){$(i).onchange=function(){send(i+'='+this.value,'Applying - the stream restarts for a moment...')}});
 $('unplug').onchange=function(){send('unplug='+this.value)};
 $('camauto').onchange=function(){send('camera='+(this.checked?'auto':'manual'))};
@@ -196,8 +239,36 @@ $('powersave').onchange=function(){send('powersave='+onoff(this.checked))};
 $('autostart').onchange=function(){send('autostart='+onoff(this.checked))};
 $('preview').onchange=function(){send('preview='+onoff(this.checked))};
 $('heatauto').onchange=function(){send('heatauto='+onoff(this.checked))};
+// Every section header folds its section away (arrow at the right); the choice is remembered in this browser.
+(function(){
+ var saved={};try{saved=JSON.parse(localStorage.getItem('w10m-fold')||'{}')}catch(e){}
+ var hs=Array.prototype.slice.call(document.getElementsByTagName('h2'));
+ hs.forEach(function(h){
+  var name=h.textContent,body=document.createElement('div'),n=h.nextSibling;
+  while(n&&!(n.nodeType===1&&(n.tagName==='H2'||n.id==='msg'||n.tagName==='SCRIPT'))){var nx=n.nextSibling;body.appendChild(n);n=nx}
+  h.parentNode.insertBefore(body,n);
+  var ar=document.createElement('span');ar.className='ar';h.appendChild(ar);
+  h.setAttribute('role','button');
+  function show(open){body.style.display=open?'':'none';ar.textContent=open?'▾':'▴';h.setAttribute('aria-expanded',open?'true':'false')}
+  show(saved[name]!==false);
+  h.onclick=function(){var open=body.style.display==='none';show(open);saved[name]=open;try{localStorage.setItem('w10m-fold',JSON.stringify(saved))}catch(e){}}
+ })
+})();
+// Hover (or tap) anything with data-tip to see its note; the box stays inside the window.
+(function(){
+ var box=$('tipbox'),cur=null;
+ function find(e){var n=e.target;while(n&&n!==document){if(n.getAttribute&&n.getAttribute('data-tip'))return n;n=n.parentNode}return null}
+ function show(n){var t=n.getAttribute('data-tip');if(!t){hide();return}cur=n;box.textContent=t;box.style.display='block';
+  var r=n.getBoundingClientRect(),w=box.offsetWidth,h=box.offsetHeight;
+  var x=Math.max(8,Math.min(window.innerWidth-w-8,r.left+r.width/2-w/2)),y=r.bottom+6;
+  if(y+h>window.innerHeight-8)y=Math.max(8,r.top-h-6);box.style.left=x+'px';box.style.top=y+'px'}
+ function hide(){cur=null;box.style.display='none'}
+ document.addEventListener('mouseover',function(e){var n=find(e);if(n)show(n);else if(cur)hide()});
+ document.addEventListener('click',function(e){var n=find(e);if(n&&(' '+n.className+' ').indexOf(' tip ')>=0){show(n);e.preventDefault();e.stopPropagation()}else if(!n)hide()},true);
+ window.addEventListener('scroll',hide,true);
+})();
 load();setInterval(load,2000);
-</script></main></body></html>
+</script></body></html>
 ";
     }
 }

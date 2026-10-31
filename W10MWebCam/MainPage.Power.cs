@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Windows.Devices.Power;
 using Windows.System.Power;
 using Windows.UI.Xaml;
@@ -21,7 +22,7 @@ namespace W10MWebCam
         private int _powerTick, _pausedSecs, _chargingSecs;
         private bool _protect, _heatWarned;
         private DateTime _protectSince = DateTime.MinValue;
-        private string _notice = "", _heat = "Healthy";
+        private string _notice = "", _alert = "", _chargerNotice = "", _heat = "Healthy";
         private BatteryReport _battery;
 
         private void LoadPowerSettings()
@@ -127,16 +128,22 @@ namespace W10MWebCam
             if (_camera != null && _camera.IsStreaming) await RestartStreamAsync();
         }
 
+        /// <summary>The red notice (heat, safe mode) and the amber one (charger) on the status card; the same text goes to the web page.</summary>
         private void UpdateNotice()
         {
-            var parts = new List<string>();
-            if (_protect) parts.Add("Heat protection: the stream is lowered to 1080p / 6 Mbps until charging resumes.");
-            else if (_pausedSecs >= 20) parts.Add("The phone is probably too hot: charging has paused on a good charger. Give it air, lower the resolution, or turn on 'Lower to 1080p' below.");
+            var alerts = new List<string>();
+            if (_protect) alerts.Add("Heat protection: the stream is lowered to 1080p / 6 Mbps until charging resumes.");
+            else if (_pausedSecs >= 20) alerts.Add("The phone is probably too hot: charging has paused on a good charger. Give it air, lower the resolution, or turn on 'Lower to 1080p' under Power.");
+            if (_safeMode) alerts.Add("Safe mode: the standard (MP4) engine is in use until the app is reopened.");
             string charger = ChargerNotice();
-            if (charger.Length > 0) parts.Add(charger);
-            _notice = string.Join(" ", parts);
-            NoticeText.Text = _notice;
-            NoticeBox.Visibility = _notice.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+            string alert = string.Join(" ", alerts);
+            _notice = string.Join(" ", alerts.Concat(charger.Length > 0 ? new[] { charger } : new string[0]));
+            _alert = alert;
+            _chargerNotice = charger;
+            AlertText.Text = alert;
+            AlertBox.Visibility = alert.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+            NoticeText.Text = charger;
+            NoticeBox.Visibility = charger.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
             string cpu = _power.CpuText();
             int? pct = Percent(_battery);
             PowerText.Text = (pct.HasValue ? "Battery " + pct + " % " + _battery.Status.ToString().ToLowerInvariant() + " · " : "") +

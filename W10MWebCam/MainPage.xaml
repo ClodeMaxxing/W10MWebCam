@@ -4,17 +4,81 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Background="Black">
 
+    <!-- Green theme shared with W10MSecurityCam and W10MDashcam: black panel, green accents, a status card with tiles,
+         folding sections and (i) pop-ups instead of long explanations. -->
     <Page.Resources>
-        <Style x:Key="Section" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="#7FB2E5" />
-            <Setter Property="FontSize" Value="12" />
+        <Style x:Key="Tile" TargetType="Border">
+            <Setter Property="Background" Value="#0B1A10" />
+            <Setter Property="BorderBrush" Value="#16301E" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Padding" Value="5,3,5,4" />
+            <Setter Property="Margin" Value="2" />
+        </Style>
+        <Style x:Key="TileLabel" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="9" />
             <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Margin" Value="0,10,0,2" />
+            <Setter Property="CharacterSpacing" Value="60" />
+            <Setter Property="Foreground" Value="#6F8F77" />
+        </Style>
+        <Style x:Key="TileValue" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Consolas" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Foreground" Value="#D6E8D9" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        </Style>
+        <Style x:Key="Meter" TargetType="Grid">
+            <Setter Property="Height" Value="6" />
+            <Setter Property="Margin" Value="0,3,0,0" />
+            <Setter Property="Background" Value="#06100A" />
+            <Setter Property="BorderBrush" Value="#1F3A26" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="3" />
         </Style>
         <Style x:Key="Note" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="#999" />
+            <Setter Property="Foreground" Value="#B9CFBD" />
             <Setter Property="FontSize" Value="11" />
             <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+        <Storyboard x:Name="DotPulse" RepeatBehavior="Forever" AutoReverse="True">
+            <DoubleAnimation Storyboard.TargetName="StatusDot" Storyboard.TargetProperty="Opacity" From="1" To="0.3" Duration="0:0:1" />
+        </Storyboard>
+        <Style x:Key="FoldButton" TargetType="Button">
+            <Setter Property="Background" Value="#0B1A10" />
+            <Setter Property="BorderThickness" Value="3,0,0,1" />
+            <Setter Property="BorderBrush" Value="#3FBF5F" />
+            <Setter Property="Foreground" Value="#9CF0B0" />
+            <Setter Property="FontSize" Value="16" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Padding" Value="10,9,10,9" />
+            <Setter Property="Margin" Value="0,8,0,4" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+        </Style>
+        <!-- A small (i) at the top right of a setting: its explanation opens in a pop-up instead of taking space. -->
+        <Style x:Key="InfoButton" TargetType="Button">
+            <Setter Property="Content" Value="&#x24D8;" />
+            <Setter Property="FontSize" Value="17" />
+            <Setter Property="Foreground" Value="#3FBF5F" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="6,0,2,2" />
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="MinHeight" Value="0" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+            <Setter Property="VerticalAlignment" Value="Top" />
+        </Style>
+        <Style x:Key="InfoText" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="MaxWidth" Value="300" />
+        </Style>
+        <!-- Plain action buttons: dark green with a soft green edge. -->
+        <Style TargetType="Button">
+            <Setter Property="Background" Value="#123320" />
+            <Setter Property="Foreground" Value="#CFFFD8" />
+            <Setter Property="BorderBrush" Value="#2E7D46" />
+            <Setter Property="BorderThickness" Value="1" />
         </Style>
     </Page.Resources>
 
@@ -25,68 +89,235 @@
         </Grid.ColumnDefinitions>
 
         <CaptureElement x:Name="PreviewElement" Stretch="Uniform" />
-        <TextBlock x:Name="PreviewOffText" Text="Preview off" Foreground="#888" TextWrapping="Wrap" TextAlignment="Center"
+        <TextBlock x:Name="PreviewOffText" Text="Preview off" Foreground="#6F8F77" TextWrapping="Wrap" TextAlignment="Center"
                    HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed" Margin="12" />
 
-        <ScrollViewer Grid.Column="1" Background="#1A1A1A" VerticalScrollBarVisibility="Auto">
+        <ScrollViewer Grid.Column="1" Background="#050805" VerticalScrollBarVisibility="Auto">
             <StackPanel Margin="10,6,10,10">
-                <TextBlock x:Name="TitleText" Text="W10MWebCam" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,6" />
+                <Grid Margin="0,0,0,8">
+                    <TextBlock x:Name="TitleText" Text="W10MWebCam" FontSize="20" FontWeight="SemiBold" Foreground="#E4F5E7" VerticalAlignment="Bottom" />
+                    <TextBlock x:Name="VersionText" Text="" FontSize="11" FontWeight="Bold" Foreground="#39FF14" HorizontalAlignment="Right" VerticalAlignment="Top" />
+                </Grid>
 
-                <Button x:Name="StartButton" Content="Start streaming" HorizontalAlignment="Stretch"
-                        Margin="0,0,0,8" Click="StartButton_Click" IsEnabled="False" />
+                <Button x:Name="StartButton" Content="Start streaming" HorizontalAlignment="Stretch" FontSize="14"
+                        Margin="0,0,0,6" Click="StartButton_Click" IsEnabled="False" />
 
-                <TextBlock Text="Connect from PC to:" Foreground="#AAA" FontSize="12" />
-                <TextBlock x:Name="AddressText" Text="…" IsTextSelectionEnabled="True" TextWrapping="Wrap"
-                           FontSize="14" FontWeight="SemiBold" Margin="0,0,0,6" />
-
-                <TextBlock x:Name="StatsText" Text="Idle" FontSize="13" TextWrapping="Wrap" Margin="0,0,0,4" />
-                <TextBlock x:Name="PowerText" Text="" Style="{StaticResource Note}" Margin="0,0,0,4" />
-                <Border x:Name="NoticeBox" Background="#2A2610" BorderBrush="#E8D040" BorderThickness="2,0,0,0"
-                        Padding="6,4" Margin="0,0,0,6" Visibility="Collapsed">
-                    <TextBlock x:Name="NoticeText" Foreground="#F0E0A0" FontSize="12" TextWrapping="Wrap" />
+                <!-- Status card: state dot and label, resolution and viewer pills, the big numbers, then the tiles. -->
+                <Border Background="#07140B" BorderBrush="#1F3A26" BorderThickness="1" CornerRadius="6" Padding="10,8,10,8" Margin="0,0,0,6">
+                    <StackPanel>
+                        <Grid>
+                            <StackPanel Orientation="Horizontal">
+                                <Ellipse x:Name="StatusDot" Width="10" Height="10" Fill="#555555" VerticalAlignment="Center" Margin="0,0,7,0" />
+                                <TextBlock x:Name="StateText" Text="STOPPED" FontSize="13" FontWeight="SemiBold" Foreground="#9CF0B0" CharacterSpacing="60" VerticalAlignment="Center" />
+                                <Border x:Name="ResPill" BorderBrush="#2E7D46" BorderThickness="1" CornerRadius="9" Background="#0B1A10" Padding="6,0,6,1" Margin="7,0,0,0" VerticalAlignment="Center" Visibility="Collapsed">
+                                    <TextBlock x:Name="ResText" FontSize="11" Foreground="#9CF0B0" />
+                                </Border>
+                            </StackPanel>
+                            <Border BorderBrush="#2E7D46" BorderThickness="1" CornerRadius="9" Background="#0B1A10" Padding="6,0,6,1" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <TextBlock x:Name="ViewersText" Text="0 viewers" FontSize="11" Foreground="#9CF0B0" />
+                            </Border>
+                        </Grid>
+                        <TextBlock x:Name="StatsText" Text="" FontFamily="Consolas" FontSize="20" Foreground="#E4F5E7" Margin="0,6,0,0" Visibility="Collapsed" />
+                        <Grid Margin="-2,6,-2,0">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                            <Border Grid.Row="0" Grid.Column="0" Style="{StaticResource Tile}">
+                                <StackPanel>
+                                    <TextBlock Text="BATTERY" Style="{StaticResource TileLabel}" />
+                                    <TextBlock x:Name="BattText" Text="-" Style="{StaticResource TileValue}" />
+                                    <Grid x:Name="BattBar" Style="{StaticResource Meter}">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="0*" /><ColumnDefinition Width="100*" /></Grid.ColumnDefinitions>
+                                        <Border x:Name="BattBarFill" Background="#39FF14" CornerRadius="2" />
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                            <Border Grid.Row="0" Grid.Column="1" Style="{StaticResource Tile}">
+                                <StackPanel>
+                                    <TextBlock Text="WI-FI" Style="{StaticResource TileLabel}" />
+                                    <TextBlock x:Name="WifiText" Text="-" Style="{StaticResource TileValue}" />
+                                    <StackPanel Orientation="Horizontal" Height="12" Margin="0,3,0,0">
+                                        <Rectangle x:Name="Wifi1" Width="5" Height="3" Margin="0,0,2,0" VerticalAlignment="Bottom" Fill="#16301E" />
+                                        <Rectangle x:Name="Wifi2" Width="5" Height="6" Margin="0,0,2,0" VerticalAlignment="Bottom" Fill="#16301E" />
+                                        <Rectangle x:Name="Wifi3" Width="5" Height="9" Margin="0,0,2,0" VerticalAlignment="Bottom" Fill="#16301E" />
+                                        <Rectangle x:Name="Wifi4" Width="5" Height="12" VerticalAlignment="Bottom" Fill="#16301E" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                            <Border Grid.Row="0" Grid.Column="2" Style="{StaticResource Tile}">
+                                <StackPanel>
+                                    <TextBlock Text="TEMP" Style="{StaticResource TileLabel}" />
+                                    <Border x:Name="TempBadge" CornerRadius="9" BorderThickness="1" Padding="5,1,6,1" Margin="0,3,0,0" HorizontalAlignment="Left">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Ellipse x:Name="TempBadgeDot" Width="6" Height="6" VerticalAlignment="Center" Margin="0,0,4,0" />
+                                            <TextBlock x:Name="TempBadgeText" FontSize="10" FontWeight="SemiBold" />
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </Border>
+                            <Border Grid.Row="1" Grid.Column="0" Style="{StaticResource Tile}">
+                                <StackPanel>
+                                    <TextBlock Text="CPU PHONE" Style="{StaticResource TileLabel}" />
+                                    <TextBlock x:Name="CpuPhoneText" Text="-" Style="{StaticResource TileValue}" />
+                                    <Grid x:Name="CpuPhoneBar" Style="{StaticResource Meter}">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="0*" /><ColumnDefinition Width="100*" /></Grid.ColumnDefinitions>
+                                        <Border x:Name="CpuPhoneBarFill" Background="#39FF14" CornerRadius="2" />
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                            <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource Tile}">
+                                <StackPanel>
+                                    <TextBlock Text="CPU APP" Style="{StaticResource TileLabel}" />
+                                    <TextBlock x:Name="CpuAppText" Text="-" Style="{StaticResource TileValue}" />
+                                    <Grid x:Name="CpuAppBar" Style="{StaticResource Meter}">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="0*" /><ColumnDefinition Width="100*" /></Grid.ColumnDefinitions>
+                                        <Border x:Name="CpuAppBarFill" Background="#39FF14" CornerRadius="2" />
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                            <Border Grid.Row="1" Grid.Column="2" Style="{StaticResource Tile}">
+                                <StackPanel>
+                                    <TextBlock Text="MEMORY" Style="{StaticResource TileLabel}" />
+                                    <TextBlock x:Name="MemText" Text="-" Style="{StaticResource TileValue}" />
+                                    <Grid x:Name="MemBar" Style="{StaticResource Meter}">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="0*" /><ColumnDefinition Width="100*" /></Grid.ColumnDefinitions>
+                                        <Border x:Name="MemBarFill" Background="#39FF14" CornerRadius="2" />
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                            <Border Grid.Row="2" Grid.Column="0" Style="{StaticResource Tile}">
+                                <StackPanel>
+                                    <TextBlock Text="ENGINE" Style="{StaticResource TileLabel}" />
+                                    <Border x:Name="EngineBadge" CornerRadius="9" BorderThickness="1" Padding="5,1,6,1" Margin="0,3,0,0" HorizontalAlignment="Left">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Ellipse x:Name="EngineBadgeDot" Width="6" Height="6" VerticalAlignment="Center" Margin="0,0,4,0" />
+                                            <TextBlock x:Name="EngineBadgeText" FontSize="10" FontWeight="SemiBold" />
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </Border>
+                            <Border Grid.Row="2" Grid.Column="1" Style="{StaticResource Tile}">
+                                <StackPanel>
+                                    <TextBlock Text="LATENCY" Style="{StaticResource TileLabel}" />
+                                    <TextBlock x:Name="LatText" Text="-" Style="{StaticResource TileValue}" />
+                                    <Grid x:Name="LatBar" Style="{StaticResource Meter}">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="0*" /><ColumnDefinition Width="100*" /></Grid.ColumnDefinitions>
+                                        <Border x:Name="LatBarFill" Background="#39FF14" CornerRadius="2" />
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                            <Border Grid.Row="2" Grid.Column="2" Style="{StaticResource Tile}">
+                                <StackPanel>
+                                    <TextBlock x:Name="PowerLabel" Text="POWER" Style="{StaticResource TileLabel}" />
+                                    <TextBlock x:Name="PowerValText" Text="-" Style="{StaticResource TileValue}" />
+                                    <Grid x:Name="PowerBar" Style="{StaticResource Meter}">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="0*" /><ColumnDefinition Width="100*" /></Grid.ColumnDefinitions>
+                                        <Border x:Name="PowerBarFill" Background="#39FF14" CornerRadius="2" />
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                        <!-- Notices: same look as the web page. Red for heat and safe mode, amber for the charger. -->
+                        <Border x:Name="AlertBox" Visibility="Collapsed" BorderBrush="#7D2E2E" BorderThickness="3,1,1,1" CornerRadius="5" Background="#1A0808" Padding="8,5,8,5" Margin="0,8,0,0">
+                            <TextBlock x:Name="AlertText" Text="" FontSize="11" Foreground="#FFB0B0" TextWrapping="Wrap" />
+                        </Border>
+                        <Border x:Name="NoticeBox" Visibility="Collapsed" BorderBrush="#7D6E2E" BorderThickness="3,1,1,1" CornerRadius="5" Background="#1A1808" Padding="8,5,8,5" Margin="0,6,0,0">
+                            <TextBlock x:Name="NoticeText" Text="" FontSize="11" Foreground="#E8D8A0" TextWrapping="Wrap" />
+                        </Border>
+                    </StackPanel>
                 </Border>
 
-                <TextBlock Text="VIDEO" Style="{StaticResource Section}" />
-                <ComboBox x:Name="ResolutionBox" Header="Resolution" SelectionChanged="Setting_Changed" HorizontalAlignment="Stretch" Margin="0,0,0,6" />
-                <ComboBox x:Name="BitrateBox" Header="Bitrate" SelectionChanged="Setting_Changed" HorizontalAlignment="Stretch" Margin="0,0,0,6" />
-                <ComboBox x:Name="KeyframeBox" Header="Keyframe every" SelectionChanged="Setting_Changed" HorizontalAlignment="Stretch" Margin="0,0,0,6" />
-                <ToggleSwitch x:Name="PowerSaveToggle" Header="Blackout screen while streaming (tap to wake)" IsOn="True" Toggled="PowerSaveToggle_Toggled" />
-                <ToggleSwitch x:Name="AutoStartToggle" Header="Start streaming when app opens" IsOn="True" Toggled="AutoStartToggle_Toggled" />
-                <ToggleSwitch x:Name="PreviewToggle" Header="Preview on phone (changes apply when the stream is stopped)" IsOn="True" Toggled="PreviewToggle_Toggled" />
+                <TextBlock Text="CONNECT FROM THE PC" Style="{StaticResource TileLabel}" Margin="0,2,0,0" />
+                <TextBlock x:Name="AddressText" Text="…" IsTextSelectionEnabled="True" TextWrapping="Wrap"
+                           FontSize="12" FontWeight="SemiBold" Foreground="#D6E8D9" Margin="0,2,0,4" />
 
-                <TextBlock Text="CAMERA" Style="{StaticResource Section}" />
-                <ToggleSwitch x:Name="CameraAutoToggle" Header="Automatic focus, exposure and white balance" IsOn="True" Toggled="CameraAutoToggle_Toggled" />
-                <Button x:Name="FocusOnceButton" Content="Focus once and lock" HorizontalAlignment="Stretch" Margin="0,0,0,4" Click="FocusOnceButton_Click" />
-                <TextBlock x:Name="CameraText" Text="" Style="{StaticResource Note}" />
-                <ToggleSwitch x:Name="TorchToggle" Header="Flashlight (while streaming, off after 30 s)" Toggled="TorchToggle_Toggled" IsEnabled="False" />
-                <ToggleSwitch x:Name="SaveOisToggle" Header="Stabilization off (fixed mount, less heat)" Toggled="SaveOisToggle_Toggled" />
-                <ToggleSwitch x:Name="SaveFocusToggle" Header="Hold focus once it has settled" Toggled="SaveFocusToggle_Toggled" />
-                <TextBlock Text="Manual focus, exposure and white balance: open http://127.0.0.1:8020/settings on the PC."
-                           Style="{StaticResource Note}" />
+                <Button Style="{StaticResource FoldButton}" Tag="VideoPanel|VIDEO" Content="VIDEO  &#x25B8;" Click="Fold_Click" />
+                <StackPanel x:Name="VideoPanel" Visibility="Collapsed">
+                    <ComboBox x:Name="ResolutionBox" Header="Resolution" SelectionChanged="Setting_Changed" HorizontalAlignment="Stretch" Margin="0,0,0,6" />
+                    <ComboBox x:Name="BitrateBox" Header="Bitrate" SelectionChanged="Setting_Changed" HorizontalAlignment="Stretch" Margin="0,0,0,6" />
+                    <Grid>
+                        <ComboBox x:Name="KeyframeBox" Header="Keyframe every" SelectionChanged="Setting_Changed" HorizontalAlignment="Stretch" Margin="0,0,0,6" />
+                        <Button Style="{StaticResource InfoButton}"><Button.Flyout><Flyout><TextBlock Style="{StaticResource InfoText}"
+                            Text="A full picture this often. Shorter: OBS joins and recovers faster, at slightly more data. It does not change the delay." /></Flyout></Button.Flyout></Button>
+                    </Grid>
+                    <ToggleSwitch x:Name="AutoStartToggle" Header="Start streaming when the app opens" IsOn="True" Toggled="AutoStartToggle_Toggled" />
+                    <Grid>
+                        <ToggleSwitch x:Name="PreviewToggle" Header="Preview on the phone" IsOn="True" Toggled="PreviewToggle_Toggled" />
+                        <Button Style="{StaticResource InfoButton}"><Button.Flyout><Flyout><TextBlock Style="{StaticResource InfoText}"
+                            Text="Shown when the screen is not blacked out. Changes take effect when the stream is stopped or restarted: switching the preview during a 4K stream can stall it. Keeping it off saves processing." /></Flyout></Button.Flyout></Button>
+                    </Grid>
+                </StackPanel>
 
-                <TextBlock Text="POWER" Style="{StaticResource Section}" />
-                <ToggleSwitch x:Name="HeatAutoToggle" Header="Lower to 1080p / 6 Mbps if the phone overheats" Toggled="HeatAutoToggle_Toggled" />
-                <ComboBox x:Name="UnplugBox" Header="When unplugged, stop streaming after" SelectionChanged="UnplugBox_SelectionChanged"
-                          HorizontalAlignment="Stretch" Margin="0,0,0,6" />
+                <Button Style="{StaticResource FoldButton}" Tag="CameraPanel|CAMERA" Content="CAMERA  &#x25B8;" Click="Fold_Click" />
+                <StackPanel x:Name="CameraPanel" Visibility="Collapsed">
+                    <Grid>
+                        <ToggleSwitch x:Name="CameraAutoToggle" Header="Automatic focus, exposure and white balance" IsOn="True" Toggled="CameraAutoToggle_Toggled" />
+                        <Button Style="{StaticResource InfoButton}"><Button.Flyout><Flyout><TextBlock Style="{StaticResource InfoText}"
+                            Text="Off holds the current values. Each one has its own Auto box and slider on the PC settings page (http://127.0.0.1:8020/settings)." /></Flyout></Button.Flyout></Button>
+                    </Grid>
+                    <Button x:Name="FocusOnceButton" Content="Focus once and lock" HorizontalAlignment="Stretch" Margin="0,2,0,4" Click="FocusOnceButton_Click" />
+                    <TextBlock x:Name="CameraText" Text="" Style="{StaticResource Note}" Margin="0,0,0,4" />
+                    <Grid>
+                        <ToggleSwitch x:Name="TorchToggle" Header="Flashlight" Toggled="TorchToggle_Toggled" IsEnabled="False" />
+                        <Button Style="{StaticResource InfoButton}"><Button.Flyout><Flyout><TextBlock Style="{StaticResource InfoText}"
+                            Text="Only while streaming. It switches off by itself after 30 seconds: the LED heats the phone quickly and this phone cannot dim it." /></Flyout></Button.Flyout></Button>
+                    </Grid>
+                    <Grid>
+                        <ToggleSwitch x:Name="SaveOisToggle" Header="Stabilization off (fixed mount)" Toggled="SaveOisToggle_Toggled" />
+                        <Button Style="{StaticResource InfoButton}"><Button.Flyout><Flyout><TextBlock Style="{StaticResource InfoText}"
+                            Text="For a phone on a tripod or mount: less processing and heat. Changing it restarts the stream once." /></Flyout></Button.Flyout></Button>
+                    </Grid>
+                    <Grid>
+                        <ToggleSwitch x:Name="SaveFocusToggle" Header="Hold focus once it has settled" Toggled="SaveFocusToggle_Toggled" />
+                        <Button Style="{StaticResource InfoButton}"><Button.Flyout><Flyout><TextBlock Style="{StaticResource InfoText}"
+                            Text="Parks the lens after autofocus settles, so it stops hunting. Not for a subject that moves toward or away from the camera. Focus once, or a stream restart, aims it again." /></Flyout></Button.Flyout></Button>
+                    </Grid>
+                </StackPanel>
 
-                <TextBlock Text="LOG" Style="{StaticResource Section}" />
-                <TextBlock x:Name="LogText" FontSize="11" TextWrapping="Wrap" Foreground="#CCC"
-                           IsTextSelectionEnabled="True" FontFamily="Consolas" />
+                <Button Style="{StaticResource FoldButton}" Tag="PowerPanel|POWER" Content="POWER  &#x25B8;" Click="Fold_Click" />
+                <StackPanel x:Name="PowerPanel" Visibility="Collapsed">
+                    <Grid>
+                        <ToggleSwitch x:Name="PowerSaveToggle" Header="Black screen while streaming" IsOn="True" Toggled="PowerSaveToggle_Toggled" />
+                        <Button Style="{StaticResource InfoButton}"><Button.Flyout><Flyout><TextBlock Style="{StaticResource InfoText}"
+                            Text="Black OLED screen at minimum brightness: saves battery and lets the phone charge while it streams 4K. Tap the black screen to see the controls for 15 s." /></Flyout></Button.Flyout></Button>
+                    </Grid>
+                    <Grid>
+                        <ToggleSwitch x:Name="HeatAutoToggle" Header="Lower to 1080p if the phone overheats" Toggled="HeatAutoToggle_Toggled" />
+                        <Button Style="{StaticResource InfoButton}"><Button.Flyout><Flyout><TextBlock Style="{StaticResource InfoText}"
+                            Text="When charging pauses on a good charger for 20 s the battery is hot. Off: only a warning. On: the stream drops to 1080p / 6 Mbps until charging has resumed (at least 3 minutes); your own settings stay as they are." /></Flyout></Button.Flyout></Button>
+                    </Grid>
+                    <Grid>
+                        <ComboBox x:Name="UnplugBox" Header="When unplugged, stop streaming after" SelectionChanged="UnplugBox_SelectionChanged"
+                                  HorizontalAlignment="Stretch" Margin="0,0,0,6" />
+                        <Button Style="{StaticResource InfoButton}"><Button.Flyout><Flyout><TextBlock Style="{StaticResource InfoText}"
+                            Text="When the phone goes on battery while streaming, a countdown shows on the screen; when it ends the stream stops so the phone isn't run flat. It starts again when the power returns. Keep streaming skips it once." /></Flyout></Button.Flyout></Button>
+                    </Grid>
+                </StackPanel>
+
+                <Button Style="{StaticResource FoldButton}" Tag="DetailsPanel|DETAILS AND LOG" Content="DETAILS AND LOG  &#x25B8;" Click="Fold_Click" />
+                <StackPanel x:Name="DetailsPanel" Visibility="Collapsed">
+                    <TextBlock x:Name="PowerText" Text="" Style="{StaticResource Note}" Margin="0,0,0,6" />
+                    <TextBlock x:Name="LogText" FontSize="11" TextWrapping="Wrap" Foreground="#B9CFBD"
+                               IsTextSelectionEnabled="True" FontFamily="Consolas" />
+                </StackPanel>
             </StackPanel>
         </ScrollViewer>
 
         <!-- Full black overlay: on an OLED screen black pixels are off, so this costs almost no power and avoids burn-in. -->
         <Border x:Name="BlackoutOverlay" Grid.ColumnSpan="2" Background="Black" Visibility="Collapsed" Tapped="BlackoutOverlay_Tapped">
-            <TextBlock Text="Streaming - tap to show controls" Foreground="#222" FontSize="12"
+            <TextBlock Text="Streaming - tap to show controls" Foreground="#16301E" FontSize="12"
                        HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,8" />
         </Border>
 
-        <!-- Power-loss countdown (above the blackout overlay). -->
+        <!-- Power-loss countdown (above the blackout overlay), in the dashcam's style. -->
         <Border x:Name="UnplugPanel" Grid.ColumnSpan="2" Background="#E6000000" Visibility="Collapsed">
-            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="420" Margin="16">
-                <TextBlock x:Name="UnplugText" Text="" FontSize="18" TextWrapping="Wrap" TextAlignment="Center" Foreground="#F0E0A0" />
-                <Button x:Name="KeepStreamingButton" Content="Keep streaming" HorizontalAlignment="Center" Margin="0,14,0,0" Click="KeepStreamingButton_Click" />
-            </StackPanel>
+            <Border Background="#7A3A00" BorderBrush="#FFB040" BorderThickness="1" CornerRadius="4" Padding="14,10,14,10"
+                    VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="420" Margin="16">
+                <StackPanel>
+                    <TextBlock x:Name="UnplugText" Text="" FontSize="16" FontWeight="Bold" TextWrapping="Wrap" TextAlignment="Center" Foreground="White" />
+                    <Button x:Name="KeepStreamingButton" Content="KEEP STREAMING" HorizontalAlignment="Stretch" Margin="0,10,0,0"
+                            FontWeight="Bold" Background="#FFFFFF" Foreground="#7A3A00" Click="KeepStreamingButton_Click" />
+                </StackPanel>
+            </Border>
         </Border>
     </Grid>
 </Page>

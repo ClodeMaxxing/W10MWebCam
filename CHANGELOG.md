@@ -28,6 +28,11 @@ Renamed from LumiaCam, and the improvements from its forks (W10MSecurityCam 1.1,
 - Install scripts read the phone's Wi-Fi address from `tools\phone-ip.txt` instead of a fixed address.
 - Tools: `Soak-Monitor.ps1` (long-run CSV + HTML report from `/status`), `Monitor-Portal.ps1` (Device Portal load),
   `Remove-Dead-IpOverUsb-Keys.cmd`.
+- **Green theme, shared with W10MSecurityCam and W10MDashcam,** on the phone and the settings page: a status card with a
+  pulsing dot, state, resolution and viewer pills, big fps / Mbps figures and tiles (battery bar, Wi-Fi bars, temperature
+  badge, phone and app CPU, memory, engine badge, encoder latency, power in watts); red and amber notices; folding
+  sections (Video, Camera, Power, Details and log) with (i) pop-ups instead of long labels. Brushes are cached and the
+  tiles are not redrawn while the screen is black.
 - 6 Mbps added to the bitrate list.
 
 ## 1.0 — LumiaCam

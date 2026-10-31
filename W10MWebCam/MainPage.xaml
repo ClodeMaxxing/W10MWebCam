@@ -218,7 +218,11 @@
                         </Grid>
                         <!-- Notices: same look as the web page. Red for heat and safe mode, amber for the charger. -->
                         <Border x:Name="AlertBox" Visibility="Collapsed" BorderBrush="#7D2E2E" BorderThickness="3,1,1,1" CornerRadius="5" Background="#1A0808" Padding="8,5,8,5" Margin="0,8,0,0">
-                            <TextBlock x:Name="AlertText" Text="" FontSize="11" Foreground="#FFB0B0" TextWrapping="Wrap" />
+                            <StackPanel>
+                                <TextBlock x:Name="AlertText" Text="" FontSize="11" Foreground="#FFB0B0" TextWrapping="Wrap" />
+                                <Button x:Name="NormalModeButton" Content="Return to normal mode" HorizontalAlignment="Stretch" Margin="0,6,0,0" FontSize="12"
+                                        Visibility="Collapsed" Click="NormalModeButton_Click" Background="#3A1010" Foreground="#FFD0D0" BorderBrush="#A03030" />
+                            </StackPanel>
                         </Border>
                         <Border x:Name="NoticeBox" Visibility="Collapsed" BorderBrush="#7D6E2E" BorderThickness="3,1,1,1" CornerRadius="5" Background="#1A1808" Padding="8,5,8,5" Margin="0,6,0,0">
                             <TextBlock x:Name="NoticeText" Text="" FontSize="11" Foreground="#E8D8A0" TextWrapping="Wrap" />
@@ -226,12 +230,32 @@
                     </StackPanel>
                 </Border>
 
-                <TextBlock Text="CONNECT FROM THE PC" Style="{StaticResource TileLabel}" Margin="0,2,0,0" />
-                <TextBlock x:Name="AddressText" Text="…" IsTextSelectionEnabled="True" TextWrapping="Wrap"
-                           FontSize="12" FontWeight="SemiBold" Foreground="#D6E8D9" Margin="0,2,0,4" />
+                <!-- Connect: only the video and the settings page, grouped by USB cable and Wi-Fi. Other pages are under Network. -->
+                <Grid>
+                    <TextBlock Text="CONNECT FROM THE PC" Style="{StaticResource TileLabel}" Margin="0,4,0,0" />
+                    <Button Style="{StaticResource InfoButton}"><Button.Flyout><Flyout><TextBlock Style="{StaticResource InfoText}"
+                        Text="USB addresses (127.0.0.1) work on the PC the phone is plugged into. Wi-Fi addresses work from any device on the same network. OBS: Media Source, Input Format h264. VLC: Media > Open Network Stream, then add :demux=h264 under Show more options > Edit Options. Settings can be changed over USB, or over Wi-Fi after logging in (Network > Login)." /></Flyout></Button.Flyout></Button>
+                </Grid>
+                <Border Style="{StaticResource Tile}" Margin="0,2,0,2">
+                    <StackPanel>
+                        <TextBlock Text="USB CABLE" Style="{StaticResource TileLabel}" />
+                        <TextBlock x:Name="UsbAddressText" Text="…" IsTextSelectionEnabled="True" TextWrapping="Wrap" FontFamily="Consolas" FontSize="11" Foreground="#D6E8D9" />
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource Tile}" Margin="0,2,0,4">
+                    <StackPanel>
+                        <TextBlock Text="WI-FI" Style="{StaticResource TileLabel}" />
+                        <TextBlock x:Name="WifiAddressText" Text="…" IsTextSelectionEnabled="True" TextWrapping="Wrap" FontFamily="Consolas" FontSize="11" Foreground="#D6E8D9" />
+                    </StackPanel>
+                </Border>
 
                 <Button Style="{StaticResource FoldButton}" Tag="VideoPanel|VIDEO" Content="VIDEO  &#x25B8;" Click="Fold_Click" />
                 <StackPanel x:Name="VideoPanel" Visibility="Collapsed">
+                    <Grid>
+                        <ComboBox x:Name="CameraBox" Header="Camera" SelectionChanged="CameraBox_SelectionChanged" HorizontalAlignment="Stretch" Margin="0,0,0,6" />
+                        <Button Style="{StaticResource InfoButton}"><Button.Flyout><Flyout><TextBlock Style="{StaticResource InfoText}"
+                            Text="Rear: the main camera, up to 4K30. Front: the selfie camera (1080p at most on the Lumia 950). Switching restarts the camera and the stream; the resolution list changes with it." /></Flyout></Button.Flyout></Button>
+                    </Grid>
                     <ComboBox x:Name="ResolutionBox" Header="Resolution" SelectionChanged="Setting_Changed" HorizontalAlignment="Stretch" Margin="0,0,0,6" />
                     <ComboBox x:Name="BitrateBox" Header="Bitrate" SelectionChanged="Setting_Changed" HorizontalAlignment="Stretch" Margin="0,0,0,6" />
                     <Grid>
@@ -304,6 +328,39 @@
                         <Button Style="{StaticResource InfoButton}"><Button.Flyout><Flyout><TextBlock Style="{StaticResource InfoText}"
                             Text="When the phone goes on battery while streaming, a countdown shows on the screen; when it ends the stream stops so the phone isn't run flat. It starts again when the power returns. Keep streaming skips it once." /></Flyout></Button.Flyout></Button>
                     </Grid>
+                </StackPanel>
+
+                <Button Style="{StaticResource FoldButton}" Tag="NetworkPanel|NETWORK" Content="NETWORK  &#x25B8;" Click="Fold_Click" />
+                <StackPanel x:Name="NetworkPanel" Visibility="Collapsed">
+                    <!-- Each switch with the addresses it serves, USB first, then Wi-Fi. -->
+                    <Grid>
+                        <ToggleSwitch x:Name="WebToggle" Header="Web page (settings and status)" IsOn="True" Toggled="WebToggle_Toggled" />
+                        <Button Style="{StaticResource InfoButton}"><Button.Flyout><Flyout><TextBlock Style="{StaticResource InfoText}"
+                            Text="The settings page and /status. Over USB it can change settings; over Wi-Fi it is view only until a login is set below. Off: only the video is served (the video is never affected). Only the phone can switch it back on." /></Flyout></Button.Flyout></Button>
+                    </Grid>
+                    <TextBlock x:Name="WebPageAddressText" Text="" Style="{StaticResource Note}" FontFamily="Consolas" IsTextSelectionEnabled="True" Margin="0,-6,0,6" />
+                    <Grid>
+                        <ToggleSwitch x:Name="LogToggle" Header="Log page (/log)" Toggled="LogToggle_Toggled" />
+                        <Button Style="{StaticResource InfoButton}"><Button.Flyout><Flyout><TextBlock Style="{StaticResource InfoText}"
+                            Text="The app's log in a browser, and for tools\Get-Phone-Log.cmd. Useful when something goes wrong; the log shows here on the phone either way (Details and log). Needs the web page on." /></Flyout></Button.Flyout></Button>
+                    </Grid>
+                    <TextBlock x:Name="LogPageAddressText" Text="" Style="{StaticResource Note}" FontFamily="Consolas" IsTextSelectionEnabled="True" Margin="0,-6,0,6" />
+                    <Grid>
+                        <ToggleSwitch x:Name="StatsToggle" Header="Stats page (/stats)" Toggled="StatsToggle_Toggled" />
+                        <Button Style="{StaticResource InfoButton}"><Button.Flyout><Flyout><TextBlock Style="{StaticResource InfoText}"
+                            Text="Graphs of the last 12 hours: frame rate, bitrate, latency, viewers, battery, power, CPU, memory, Wi-Fi, heat. Samples are taken every 30 s only while this is on. Needs the web page on." /></Flyout></Button.Flyout></Button>
+                    </Grid>
+                    <TextBlock x:Name="StatsPageAddressText" Text="" Style="{StaticResource Note}" FontFamily="Consolas" IsTextSelectionEnabled="True" Margin="0,-6,0,6" />
+
+                    <Grid Margin="0,6,0,0">
+                        <TextBlock Text="LOGIN (CHANGES OVER WI-FI)" Style="{StaticResource TileLabel}" />
+                        <Button Style="{StaticResource InfoButton}"><Button.Flyout><Flyout><TextBlock Style="{StaticResource InfoText}"
+                            Text="Over the USB cable the settings page can always change settings. Over Wi-Fi it is view only until you set a login here; then the browser asks for it (Log in on the page). An empty password removes the login. Kept in the Windows password vault." /></Flyout></Button.Flyout></Button>
+                    </Grid>
+                    <TextBlock x:Name="LoginStatusText" Text="" Style="{StaticResource Note}" Margin="0,2,0,4" />
+                    <TextBox x:Name="UserBox" PlaceholderText="User name (admin)" Margin="0,0,0,4" />
+                    <PasswordBox x:Name="PassBox" PlaceholderText="New password (empty = remove the login)" Margin="0,0,0,4" />
+                    <Button x:Name="SaveLoginButton" Content="Save login" HorizontalAlignment="Stretch" Click="SaveLoginButton_Click" Margin="0,0,0,6" />
                 </StackPanel>
 
                 <Button Style="{StaticResource FoldButton}" Tag="DetailsPanel|DETAILS AND LOG" Content="DETAILS AND LOG  &#x25B8;" Click="Fold_Click" />

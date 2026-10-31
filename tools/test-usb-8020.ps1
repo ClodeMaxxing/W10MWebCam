@@ -24,7 +24,7 @@ try {
   "Bytes received: $total; first data after $first s" | Add-Content $log
 } catch { "ERROR: $_" | Add-Content $log }
 try {
-  (New-Object System.Net.WebClient).DownloadString("http://192.168.0.121:5001/") | Out-File $phoneLog -Encoding utf8
+  (New-Object System.Net.WebClient).DownloadString("http://127.0.0.1:8020/log") | Out-File $phoneLog -Encoding utf8
   "Phone log saved" | Add-Content $log
-} catch { "Phone log fetch failed: $_" | Add-Content $log }
+} catch { "Phone log not saved (switch on Network > Log page in the app to include it): $($_.Exception.Message)" | Add-Content $log }
 "Done $(Get-Date)" | Add-Content $log

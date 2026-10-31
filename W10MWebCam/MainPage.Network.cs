@@ -1,0 +1,227 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using System.Threading.Tasks;
+using Windows.UI.Xaml;
+using Windows.UI.Xaml.Controls;
+
+namespace W10MWebCam
+{
+    /// <summary>
+    /// Network switches (as in W10MDashcam): the web page (settings and /status; on by default), the log page (/log) and
+    /// the stats page (/stats); the last two are off by default and need the web page on. The video on ports 8020 and
+    /// 5000 is never affected. Also here: the stats samples, the rear/front camera choice and the safe-mode button.
+    /// </summary>
+    public sealed partial class MainPage
+    {
+        private void LoadNetworkSettings()
+        {
+            WebToggle.IsOn = GetBool("WebOn", true);
+            LogToggle.IsOn = GetBool("LogOn", false);
+            StatsToggle.IsOn = GetBool("StatsOn", false);
+            if (CameraBox.Items.Count == 0) { CameraBox.Items.Add("Rear"); CameraBox.Items.Add("Front"); }
+            CameraBox.SelectedIndex = _camera != null && _camera.UsingFrontCamera ? 1 : 0;
+            ApplyNetworkSwitches();
+        }
+
+        private void ApplyNetworkSwitches()
+        {
+            _http.WebEnabled = WebToggle.IsOn;
+            _http.LogEnabled = LogToggle.IsOn;
+            _http.StatsEnabled = StatsToggle.IsOn;
+            LogToggle.IsEnabled = StatsToggle.IsEnabled = WebToggle.IsOn;
+            UpdateAddresses();
+        }
+
+        private string UsbUrl(string path) => "http://127.0.0.1:" + UsbPort + path;
+        private string WifiUrl(string path) => _wifiAddress.Length > 0 ? "http://" + _wifiAddress + ":" + LogPort + path : "(no Wi-Fi)";
+
+        /// <summary>
+        /// The main screen shows only the video and the settings page, grouped by USB cable and Wi-Fi; the Network section
+        /// shows each page's addresses under its switch.
+        /// </summary>
+        private void UpdateAddresses()
+        {
+            bool web = WebToggle.IsOn;
+            UsbAddressText.Text = "Video     tcp://127.0.0.1:" + UsbPort + "\nSettings  " + (web ? UsbUrl("/settings") : "(web page off)");
+            WifiAddressText.Text = _wifiAddress.Length == 0 ? "Not connected to Wi-Fi"
+                : "Video     tcp://" + _wifiAddress + ":" + WifiPort + "\nSettings  " + (web ? WifiUrl("/settings") + (_http.Login.Enabled ? "" : "  (view only)") : "(web page off)");
+            WebPageAddressText.Text = "USB    " + UsbUrl("/settings") + "\n       " + UsbUrl("/status") +
+                                      "\nWi-Fi  " + WifiUrl("/settings") + "\n       " + WifiUrl("/status");
+            LogPageAddressText.Text = "USB    " + UsbUrl("/log") + "\nWi-Fi  " + WifiUrl("/log");
+            StatsPageAddressText.Text = "USB    " + UsbUrl("/stats") + "\nWi-Fi  " + WifiUrl("/stats");
+            WebPageAddressText.Opacity = web ? 1 : 0.4;
+            LogPageAddressText.Opacity = web && LogToggle.IsOn ? 1 : 0.4;
+            StatsPageAddressText.Opacity = web && StatsToggle.IsOn ? 1 : 0.4;
+            LoginStatusText.Text = _http.Login.Enabled
+                ? "Login set (user \"" + _http.Login.UserName + "\"): settings can be changed over Wi-Fi after logging in."
+                : "No login: over Wi-Fi the settings page is view only. Over USB it can always change settings.";
+            if (_http.Login.Enabled && string.IsNullOrEmpty(UserBox.Text)) UserBox.Text = _http.Login.UserName;
+        }
+
+        private void SaveLoginButton_Click(object sender, RoutedEventArgs e) => SaveLogin(UserBox.Text, PassBox.Password);
+
+        /// <summary>Sets the Wi-Fi login (an empty password removes it). Returns a result line, or an error.</summary>
+        private string SaveLogin(string user, string password)
+        {
+            user = (user ?? "").Trim();
+            if (user.Length > 0 && !System.Text.RegularExpressions.Regex.IsMatch(user, @"^[A-Za-z0-9._-]{1,32}$"))
+                return "Not changed: the user name may use letters, digits . _ - (1-32 characters)";
+            if (!string.IsNullOrEmpty(password) && (password.Length < 4 || password.Length > 64 || password.Any(ch => ch < ' ')))
+                return "Not changed: the password needs 4-64 characters";
+            try { _http.Login.Save(user, password); }
+            catch (Exception ex) { Log("Login: " + ex.Message); return "Login not saved: " + ex.Message; }
+            PassBox.Password = "";
+            string result = _http.Login.Enabled ? "Login set for \"" + _http.Login.UserName + "\": changes over Wi-Fi need it" : "Login removed: Wi-Fi is view only";
+            Log(result);
+            UpdateAddresses();
+            return result;
+        }
+
+        private void WebToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (_loading) return;
+            _settings.Values["WebOn"] = WebToggle.IsOn;
+            ApplyNetworkSwitches();
+            Log("Web page " + (WebToggle.IsOn ? "on" : "off (only the video is served)"));
+        }
+
+        private void LogToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (_loading) return;
+            _settings.Values["LogOn"] = LogToggle.IsOn;
+            ApplyNetworkSwitches();
+            Log("Log page " + (LogToggle.IsOn ? "on" : "off"));
+        }
+
+        private void StatsToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (_loading) return;
+            _settings.Values["StatsOn"] = StatsToggle.IsOn;
+            ApplyNetworkSwitches();
+            Log("Stats page " + (StatsToggle.IsOn ? "on: a sample every 30 s from now" : "off"));
+        }
+
+        // ---------------------------------------------------------------- stats samples (for /stats)
+
+        private const int StatsKeep = 1440; // 12 hours at one sample every 30 s
+        private readonly Queue<string> _statRows = new Queue<string>();
+        private readonly object _statLock = new object();
+        private DateTime _lastStatSample = DateTime.MinValue;
+
+        private static string F(double? v, string fmt = "0.##") => v.HasValue ? v.Value.ToString(fmt, CultureInfo.InvariantCulture) : "";
+
+        /// <summary>Once a second from the stats timer: one row every 30 s, only while the stats page is on.</summary>
+        private void SampleStats()
+        {
+            if (!StatsToggle.IsOn || (DateTime.Now - _lastStatSample).TotalSeconds < 30) return;
+            _lastStatSample = DateTime.Now;
+            try
+            {
+                bool streaming = _camera != null && _camera.IsStreaming;
+                bool charging = _battery != null && _battery.Status == Windows.System.Power.BatteryStatus.Charging;
+                var video = EffectiveVideo();
+                var b = BitrateBox.SelectedItem;
+                double mem = 0;
+                try { mem = Windows.System.MemoryManager.AppMemoryUsage / 1048576.0; } catch { }
+                int bars = WifiBars();
+                // time,ok,version,streaming,fps,mbps,viewers,format,bitrate,latency_ms,battery_pct,charging,net_w,draw_w,
+                // heat_warn,protect,cpu_phone,cpu_app,memory_mb,wifi_bars,uptime_s,safe
+                string row = string.Join(",", new[]
+                {
+                    DateTime.Now.ToString("s", CultureInfo.InvariantCulture), "1", AppVersion,
+                    streaming ? "1" : "0",
+                    streaming ? F(_camera.Fps, "0.0") : "", streaming ? F(_camera.Mbps, "0.0") : "",
+                    _server.ClientCount.ToString(CultureInfo.InvariantCulture),
+                    video != null ? (video.Item1.Height >= 2160 ? "4K" : video.Item1.Height + "p") + Math.Round(video.Item1.Fps) : "",
+                    b != null ? b.ToString() : "",
+                    streaming && _camera.LastLatencyMs >= 0 ? _camera.LastLatencyMs.ToString(CultureInfo.InvariantCulture) : "",
+                    F(Percent(_battery)), charging ? "1" : "0",
+                    F(_power.NetWatts), charging ? "" : F(_power.DrawWatts),
+                    _pausedSecs >= 20 ? "1" : "0", _protect ? "1" : "0",
+                    F(_power.SysCpuPct, "0"), F(_power.ProcCpuPct, "0"),
+                    F(mem, "0"), bars >= 0 ? bars.ToString(CultureInfo.InvariantCulture) : "",
+                    F((DateTime.Now - _launchedAt).TotalSeconds, "0"),
+                    _safeMode ? "1" : "0"
+                }.Select(x => (x ?? "").Replace(",", ";").Replace("\"", "")));
+                lock (_statLock)
+                {
+                    _statRows.Enqueue(row);
+                    while (_statRows.Count > StatsKeep) _statRows.Dequeue();
+                }
+            }
+            catch (Exception ex) { Log("Stats sample: " + ex.Message); }
+        }
+
+        /// <summary>The rows for the stats page (network thread).</summary>
+        private string StatsRows()
+        {
+            lock (_statLock) return string.Join(",\n", _statRows.Select(x => "'" + x.Replace("'", "") + "'"));
+        }
+
+        // ---------------------------------------------------------------- safe mode
+
+        private async void NormalModeButton_Click(object sender, RoutedEventArgs e) => await ReturnToNormalModeAsync();
+
+        /// <summary>Leaves SAFE MODE: the low-latency engine again (restarts a running stream once).</summary>
+        private async Task<string> ReturnToNormalModeAsync()
+        {
+            if (!_safeMode || _camera == null) return "Not in safe mode";
+            _safeMode = false;
+            _nativeStalls = 0;
+            _camera.UseNativeSink = true;
+            Log("Back to normal mode: the low-latency engine");
+            try { if (_camera.IsStreaming) await RestartStreamAsync(); }
+            catch (Exception ex) { Log("Normal mode: " + ex.Message); }
+            return "Back to the low-latency engine";
+        }
+
+        // ---------------------------------------------------------------- rear / front camera
+
+        private async void CameraBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_loading || _camera == null) return;
+            bool front = CameraBox.SelectedIndex == 1;
+            if (front == _camera.UsingFrontCamera) return;
+            await SwitchCameraAsync(front);
+        }
+
+        private bool _switchingCamera;
+
+        /// <summary>Closes the camera and opens the other one; a running stream starts again on it.</summary>
+        private async Task<string> SwitchCameraAsync(bool front)
+        {
+            if (_switchingCamera || _busy || _camera == null) return "Busy - try again in a moment";
+            _switchingCamera = true;
+            try
+            {
+                _settings.Values["Camera"] = front ? "front" : "rear";
+                bool wasStreaming = _camera.IsStreaming;
+                Log("Switching to the " + (front ? "front" : "rear") + " camera" + (wasStreaming ? " (the stream restarts)" : ""));
+                EndPhoneAdjust();
+                if (wasStreaming) await ToggleStreamingAsync(); // stop
+                TorchOff();
+                var old = _camera;
+                _camera = null;
+                old.NalReady -= _server.Broadcast;
+                PreviewElement.Source = null;
+                try { await old.ShutdownAsync(); } catch (Exception ex) { Log("Closing the camera: " + ex.Message); }
+                await InitCameraAsync(wasStreaming);
+                bool ok = _camera != null && _camera.UsingFrontCamera == front;
+                if (!ok)
+                {
+                    _settings.Values["Camera"] = _camera != null && _camera.UsingFrontCamera ? "front" : "rear";
+                    return "That camera is not available";
+                }
+                return "Switched to the " + (front ? "front" : "rear") + " camera";
+            }
+            catch (Exception ex)
+            {
+                Log("Switching camera: " + ex.Message);
+                return "Switching camera failed (see the log)";
+            }
+            finally { _switchingCamera = false; }
+        }
+    }
+}

@@ -1,9 +1,9 @@
 namespace W10MWebCam.Streaming
 {
     /// <summary>
-    /// The settings page (http://127.0.0.1:8020/settings over USB, http://PHONE-IP:5001/settings over Wi-Fi, view only),
-    /// in the green theme shared with W10MSecurityCam and W10MDashcam. Plain HTML and a little script; it polls
-    /// /settings/state every 2 s and posts changes to /settings/set.
+    /// The settings page (http://127.0.0.1:8020/settings over USB, http://PHONE-IP:5001/settings over Wi-Fi: view only, or
+    /// changes after logging in), in the green theme shared with W10MSecurityCam and W10MDashcam. Plain HTML and a little
+    /// script; it polls /settings/state every 2 s and posts changes to /settings/set.
     /// The page source avoids double quotes so it can live in a C# verbatim string.
     /// </summary>
     internal static class WebPage
@@ -63,23 +63,31 @@ h2 .ar{font-size:16px;color:#3fbf5f;padding:0 4px}
 #tipbox{position:fixed;display:none;max-width:260px;background:#0b1a10;border:1px solid #2e7d46;color:#d6e8d9;padding:8px 10px;border-radius:6px;font-size:12px;line-height:1.45;z-index:50;box-shadow:0 6px 16px rgba(0,0,0,.7);pointer-events:none}
 .vrow{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.vrow select{flex:1 1 30%;min-width:0}
 .btnrow{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.grp{background:#0b1a10;border:1px solid #16301e;border-radius:6px;padding:6px 10px;margin:8px 0}.grp>b{display:block;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#9cf0b0;margin-bottom:2px}
+.grp .addr{margin:4px 0}.grp .addr code{padding:4px 8px}.links{margin:2px 0 6px 22px;font-family:Consolas,'Cascadia Mono',monospace;font-size:12px;color:#7f9a86;line-height:1.6}.links a{color:#3fbf5f}.links.off{opacity:.4}
+input.tx{background:#0d140f;color:#d6e8d9;border:1px solid #1f3a26;border-radius:4px;padding:6px;font-size:14px;width:46%;margin:2px 0}
 .addr{margin:8px 0}.addr b{display:block;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#6f8f77}
 .addr code{display:block;font-size:13px;color:#e4f5e7;background:#030805;border:1px solid #16301e;border-radius:4px;padding:6px 8px;margin-top:3px;word-break:break-all;user-select:all}
 #ro{display:none}
 </style></head><body>
 <h1><span>W10MWebCam</span><span id='ver'></span></h1>
-<div class='notice' id='ro'><span class='ni'>i</span><span>View only. Settings can be changed from the PC the phone is plugged into, at <code>http://127.0.0.1:8020/settings</code>.</span></div>
+<div class='notice' id='ro'><span class='ni'>i</span><span id='rotext'>View only.</span><button id='loginb' style='display:none'>Log in</button></div>
 
 <h2>Status</h2>
 <div class='row'><div id='stat'>loading...</div><div id='warn'></div></div>
 
+<h2>Connect</h2>
+<div class='row'><div id='connect'></div>
+<div class='sub'>USB addresses (127.0.0.1) work on the PC the phone is plugged into; Wi-Fi addresses from any device on the same network.
+4K needs the USB cable or fast Wi-Fi. VLC: Media &gt; Open Network Stream, then add <code>:demux=h264</code> under Show more options &gt; Edit Options.</div></div>
+
 <h2>Video</h2>
 <div class='row'>
+<div class='vrow' style='margin-bottom:6px'><label>Camera <select id='lens'><option value='rear'>Rear</option><option value='front'>Front</option></select></label><i class='tip' data-tip='Rear: the main camera, up to 4K30. Front: the selfie camera (1080p at most on the Lumia 950). Switching restarts the camera and the stream.'>i</i></div>
 <div class='vrow'><select id='format' data-tip='Resolution and frame rate'></select><select id='bitrate' data-tip='Bitrate. Auto is about 37 Mbps at 4K30 and 9 Mbps at 1080p30; USB carries 60+ Mbps.'></select></div>
 <div class='vrow' style='margin-top:6px'><label>Keyframe every <select id='keyframe'></select></label><i class='tip' data-tip='A full picture this often. Shorter: OBS joins and recovers faster, at slightly more data. It does not change the delay.'>i</i></div>
-<div class='btnrow' style='margin-top:6px'><button id='stream'>Start stream</button><button id='addrb'>Stream addresses</button></div>
+<div class='btnrow' style='margin-top:6px'><button id='stream'>Start stream</button></div>
 <div class='sub'>Changing these restarts the stream for a moment; OBS reconnects by itself.</div>
-<div id='addrs' style='display:none'></div>
 <div class='row'><label><input type='checkbox' id='autostart'> Start streaming when the app opens</label></div>
 <div class='row'><label><input type='checkbox' id='preview'> Preview on the phone</label><i class='tip' data-tip='Shown when the screen is not blacked out. Changes apply when the stream is stopped or restarted: switching the preview during a 4K stream can stall it.'>i</i></div>
 </div>
@@ -104,9 +112,22 @@ h2 .ar{font-size:16px;color:#3fbf5f;padding:0 4px}
 <div class='row'><label><input type='checkbox' id='heatauto'> Lower to 1080p if the phone overheats</label><i class='tip' data-tip='When charging pauses on a good charger for 20 s the battery is hot. Off: only a warning. On: the stream drops to 1080p / 6 Mbps until charging has resumed (at least 3 minutes); your own settings stay as they are.'>i</i></div>
 <div class='row'><label>When unplugged, stop streaming after <select id='unplug'></select></label><i class='tip' data-tip='A countdown shows on the phone when it goes on battery while streaming; when it ends the stream stops. It starts again when the power returns.'>i</i></div>
 
+<h2>Network</h2>
+<div class='row'><label><input type='checkbox' id='webpage' checked disabled> Web page (settings and status)</label><i class='tip' data-tip='This page and /status. It can only be switched off on the phone (Network), since this page would cut itself off. The video is never affected.'>i</i>
+<div class='links' id='weblinks'></div></div>
+<div class='row'><label><input type='checkbox' id='logpage'> Log page</label><i class='tip' data-tip='The app log at /log, also used by tools\Get-Phone-Log.cmd. Off by default.'>i</i>
+<div class='links' id='loglinks'></div></div>
+<div class='row'><label><input type='checkbox' id='statspage'> Stats page</label><i class='tip' data-tip='Graphs of the last 12 hours (frame rate, bitrate, latency, battery, power, CPU, memory, heat). Samples every 30 s only while this is on. Off by default.'>i</i>
+<div class='links' id='statslinks'></div></div>
+<div class='row'><div class='head'><span>Login for changes over Wi-Fi<i class='tip' data-tip='Over the USB cable this page can always change settings. Over Wi-Fi it is view only until a login is set; then the browser asks for it. An empty password removes the login.'>i</i></span></div>
+<div class='sub' id='loginstate'></div>
+<div id='loginform'><input class='tx' id='lu' placeholder='User name' autocomplete='username'> <input class='tx' id='lp' type='password' placeholder='New password' autocomplete='new-password'> <input class='tx' id='lp2' type='password' placeholder='Repeat password' autocomplete='new-password'>
+<div class='btnrow'><button id='lb'>Save login</button><button id='lrm'>Remove login</button></div></div></div>
+
 <h2>OBS setup</h2>
 <div class='row'><div class='sub'>Media Source: untick Local File. Then:</div>
 <div class='addr'><b>Input</b><code>tcp://127.0.0.1:8020</code></div>
+<div class='sub'>(over Wi-Fi: the Wi-Fi video address under Connect)</div>
 <div class='addr'><b>Input format</b><code>h264</code></div>
 <div class='addr'><b>FFmpeg options</b><code>fflags=nobuffer flags=low_delay analyzeduration=0 probesize=500000</code></div>
 <div class='sub'>Then Start Virtual Camera and choose OBS Virtual Camera in your video app.</div></div>
@@ -129,8 +150,10 @@ function badge(t,c){return '<div class=\'badge '+(c||'')+'\'>'+esc(t)+'</div>'}
 function notice(t,bad,btn){return '<div class=\'notice'+(bad?' bad':'')+'\'><span class=\'ni\'>!</span><span>'+esc(t)+'</span>'+(btn||'')+'</div>'}
 function render(){
  if(!st)return;
- var w=st.canWrite;
- $('ro').style.display=w?'none':'flex';
+ var w=st.canWrite||(st.loginSet&&!st.fromUsb); // with a login set, a change makes the browser ask for it
+ $('ro').style.display=st.canWrite?'none':'flex';
+ $('rotext').innerHTML=st.loginSet?'Changes over Wi-Fi need the login (the browser asks for it).':'View only over Wi-Fi. To change settings from here, set a login on the phone (Network &gt; Login), or use <code>http://127.0.0.1:8020/settings</code> on the PC the phone is plugged into.';
+ $('loginb').style.display=!st.canWrite&&st.loginSet?'inline-block':'none';
  if(st.version)$('ver').textContent='v'+st.version;
  var fm=/^(\d+) x (\d+) @ (\d+)/.exec(st.format||'');
  var res=fm?(fm[2]>=2160?'4K':fm[2]+'p')+fm[3]+(st.safeMode?' SAFE':''):'';
@@ -177,12 +200,20 @@ function render(){
  fill($('format'),st.formats,st.formatIndex);fill($('bitrate'),st.bitrates.map(function(b){return b=='Auto'?'Bitrate: auto':b}),st.bitrateIndex);
  fill($('keyframe'),st.keyframes,st.keyframeIndex);fill($('unplug'),st.unplugChoices,st.unplugIndex);
  ['format','bitrate','keyframe','unplug'].forEach(function(i){$(i).disabled=!w});
- var h=location.hostname,wifi=st.wifi||h;
- $('addrs').innerHTML='<div class=\'addr\'><b>Video over USB (OBS on this PC)</b><code>tcp://127.0.0.1:'+st.usbPort+'</code></div>'
-  +'<div class=\'addr\'><b>Video over Wi-Fi</b><code>tcp://'+esc(wifi)+':'+st.wifiPort+'</code></div>'
-  +'<div class=\'addr\'><b>This page over USB (can change settings)</b><code>http://127.0.0.1:'+st.usbPort+'/settings</code></div>'
-  +'<div class=\'addr\'><b>This page over Wi-Fi (view only)</b><code>http://'+esc(wifi)+':'+st.logPort+'/settings</code></div>'
-  +'<div class=\'addr\'><b>Live log</b><code>http://127.0.0.1:'+st.usbPort+'/log</code></div>';
+ var wifi=st.wifi||'',usb='http://127.0.0.1:'+st.usbPort,wf=wifi?'http://'+esc(wifi)+':'+st.logPort:'';
+ var ad=function(l,v){return '<div class=\'addr\'><b>'+l+'</b><code>'+v+'</code></div>'};
+ $('connect').innerHTML='<div class=\'grp\'><b>USB cable</b>'+ad('Video','tcp://127.0.0.1:'+st.usbPort)+ad('Settings (can change settings)',usb+'/settings')+'</div>'
+  +'<div class=\'grp\'><b>Wi-Fi</b>'+(wifi?ad('Video','tcp://'+esc(wifi)+':'+st.wifiPort)+ad('Settings ('+(st.loginSet?'changes after logging in':'view only')+')',wf+'/settings'):'<div class=\'sub\'>The phone is not on Wi-Fi.</div>')+'</div>';
+ // grouped: the USB addresses together, then the Wi-Fi ones
+ var lk=function(paths){var a=function(b,p){return '<a href=\''+b+p+'\' target=\'_blank\'>'+b+p+'</a>'},sp='&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;';
+  var h='USB&nbsp;&nbsp;&nbsp;'+paths.map(function(p){return a(usb,p)}).join('<br>'+sp);
+  if(wf)h+='<br>Wi-Fi&nbsp;'+paths.map(function(p){return a(wf,p)}).join('<br>'+sp);return h};
+ $('weblinks').innerHTML=lk(['/settings','/status']);
+ $('loglinks').innerHTML=lk(['/log']);$('loglinks').className='links'+(st.logOn?'':' off');
+ $('statslinks').innerHTML=lk(['/stats']);$('statslinks').className='links'+(st.statsOn?'':' off');
+ $('loginstate').textContent=st.loginSet?'Login set'+(st.user?' (user '+st.user+')':'')+': settings can be changed over Wi-Fi after logging in.':'No login: over Wi-Fi this page is view only.';
+ $('loginform').style.display=w?'block':'none';$('lrm').style.display=st.loginSet?'inline-block':'none';
+ if(w&&st.user&&!$('lu').value&&document.activeElement!==$('lu'))$('lu').value=st.user;
  $('camnow').textContent='Now: '+(st.camera||'n/a');
  $('camauto').checked=st.focusAuto&&st.exposureAuto&&st.wbAuto;
  $('fa').checked=st.focusAuto;$('ea').checked=st.exposureAuto;$('wa').checked=st.wbAuto;
@@ -198,6 +229,8 @@ function render(){
  $('ois').checked=st.saveOis;$('ois').disabled=!w||!st.oisSupported;
  $('powersave').checked=st.powerSave;$('autostart').checked=st.autoStart;$('preview').checked=st.preview;$('heatauto').checked=st.heatAuto;
  ['powersave','autostart','preview','heatauto'].forEach(function(i){$(i).disabled=!w});
+ $('lens').value=st.front?'front':'rear';$('lens').disabled=!w;
+ $('logpage').checked=st.logOn;$('statspage').checked=st.statsOn;$('logpage').disabled=$('statspage').disabled=!w;
  labels();
 }
 function labels(){
@@ -210,7 +243,7 @@ function labels(){
 function send(body,note){
  busyUntil=Date.now()+4000;if(note)$('msg').textContent=note;
  fetch('/settings/set',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-Requested-With':'W10MWebCam'},body:body})
- .then(function(r){return r.ok?r.json():r.text().then(function(x){throw new Error(x)})})
+ .then(function(r){if(r.status==401){location.href='/login';throw new Error('Login needed')}return r.ok?r.json():r.text().then(function(x){throw new Error(x)})})
  .then(function(j){st=j;busyUntil=0;render();if(j.result)$('msg').textContent=j.result})
  .catch(function(e){busyUntil=0;$('msg').textContent=e.message});
 }
@@ -221,7 +254,12 @@ function load(){
 function later(body){busyUntil=Date.now()+4000;clearTimeout(timer);timer=setTimeout(function(){send(body)},400)}
 function onoff(b){return b?'on':'off'}
 $('stream').onclick=function(){send('stream='+(st&&st.streaming?'stop':'start'),st&&st.streaming?'Stopping...':'Starting...')};
-$('addrb').onclick=function(){var a=$('addrs');a.style.display=a.style.display=='none'?'block':'none'};
+$('loginb').onclick=function(){location.href='/login'};
+$('lb').onclick=function(){var u=$('lu').value.trim(),p=$('lp').value;
+ if(p!==$('lp2').value){$('msg').textContent='The two passwords differ';return}
+ if(p.length<4){$('msg').textContent='The password needs at least 4 characters';return}
+ $('lp').value=$('lp2').value='';send('user='+encodeURIComponent(u||'admin')+'&password='+encodeURIComponent(p))};
+$('lrm').onclick=function(){$('lp').value=$('lp2').value='';send('password=','Removing the login...')};
 ['format','bitrate','keyframe'].forEach(function(i){$(i).onchange=function(){send(i+'='+this.value,'Applying - the stream restarts for a moment...')}});
 $('unplug').onchange=function(){send('unplug='+this.value)};
 $('camauto').onchange=function(){send('camera='+(this.checked?'auto':'manual'))};
@@ -239,6 +277,9 @@ $('powersave').onchange=function(){send('powersave='+onoff(this.checked))};
 $('autostart').onchange=function(){send('autostart='+onoff(this.checked))};
 $('preview').onchange=function(){send('preview='+onoff(this.checked))};
 $('heatauto').onchange=function(){send('heatauto='+onoff(this.checked))};
+$('lens').onchange=function(){send('lens='+this.value,'Switching camera - the stream restarts...')};
+$('logpage').onchange=function(){send('logpage='+onoff(this.checked))};
+$('statspage').onchange=function(){send('statspage='+onoff(this.checked))};
 // Every section header folds its section away (arrow at the right); the choice is remembered in this browser.
 (function(){
  var saved={};try{saved=JSON.parse(localStorage.getItem('w10m-fold')||'{}')}catch(e){}

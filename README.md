@@ -39,13 +39,24 @@ screen locks or another app opens, and there is no way around that for an app. T
 |---|---|
 | Video over USB | `tcp://127.0.0.1:8020` |
 | Video over Wi-Fi | `tcp://PHONE-IP:5000` (the app shows the IP) |
-| Settings page (USB, can change settings) | `http://127.0.0.1:8020/settings` |
+| Settings page (USB, can change settings) | `http://127.0.0.1:8020/settings` (or just `http://127.0.0.1:8020/`) |
 | Settings page (Wi-Fi, view only) | `http://PHONE-IP:5001/settings` |
-| Log | `http://127.0.0.1:8020/` or `http://PHONE-IP:5001/` |
 | Health as JSON | `/status` on either of the two web addresses |
+| Log *(off by default)* | `/log` on either web address |
+| Stats, last 12 h of graphs *(off by default)* | `/stats` on either web address |
 
-The app has no login, so settings can only be changed over the USB cable, from the PC the phone is plugged into.
-Over Wi-Fi the page, the log and `/status` can be viewed by anyone on your network.
+**Changing settings:** over the USB cable the settings page can always change settings (only the PC the phone is
+plugged into can reach it). Over Wi-Fi the pages are view only until you set a **login** on the phone (Network > Login,
+or on the settings page over USB); then the browser asks for it before the first change (or press **Log in**). An empty
+password removes the login. Viewing over Wi-Fi needs no login, so anyone on your network can see the status.
+
+The phone's main screen shows just the two addresses you need, grouped: **USB cable** (video, settings) and **Wi-Fi**
+(video, settings). The Network section lists every page's USB and Wi-Fi address under its switch.
+
+**Network switches** (phone: *Network* section). **Web page** (on): the settings page and `/status`; switched off,
+only the video is served, and only the phone can switch it back on. **Log page** and **Stats page** (both off): switch
+them on when you want them, on the phone or on the settings page. The stats page keeps a sample every 30 s, only while
+it is on, so it shows the time since it was switched on (up to 12 hours). The video is never affected by these.
 
 ### OBS Media Source settings
 
@@ -58,12 +69,17 @@ Over Wi-Fi the page, the log and `/status` can be viewed by anyone on your netwo
 
 Quick test without OBS: `ffplay -fflags nobuffer -flags low_delay -f h264 tcp://127.0.0.1:8020`
 
+**VLC** can't detect the raw H.264 by itself (it connects but never plays). Tell it the format: Media > Open Network
+Stream, enter the address, tick *Show more options* and add `:demux=h264` to *Edit Options*; or from a command prompt:
+`"C:\Program Files\VideoLAN\VLC\vlc.exe" --demux=h264 tcp://PHONE-IP:5000`. Over Wi-Fi, 4K needs fast Wi-Fi: on a
+2.4 GHz network the stream measured about 7 Mbps, so use 1080p (about 9 Mbps) or a lower bitrate there.
+
 ## Phone screen and settings page
 
 Both use the same green look as W10MSecurityCam and W10MDashcam. At the top: **Start/Stop streaming** and the
 **status card** (state, resolution, viewers, fps and Mbps, and tiles for battery, Wi-Fi, temperature, phone and app CPU,
 memory, engine, latency and power). Red notices are for heat and safe mode, amber ones for the charger. The settings fold
-away in sections (Video, Camera, Power, Details and log); the (i) buttons explain each one. On the settings page, hover
+away in sections (Video, Camera, Power, Network, Details and log); the (i) buttons explain each one. On the settings page, hover
 or tap a tile or an (i) for its explanation; folded sections are remembered in that browser.
 
 On the phone and on the settings page:
@@ -113,9 +129,10 @@ and a hot battery makes Windows pause charging.
 | Symptom | Fix |
 |---|---|
 | OBS black / "connecting" | Replug USB. Check the app says it is streaming and viewers ≥ 1. Toggle the OBS source off and on. |
-| **SAFE MODE** on the phone | The previous launch closed while starting a stream. This launch uses the standard (MP4) engine and doesn't auto-start; press Start. Reopen the app (or use the button on the settings page) to go back to the low-latency engine. |
+| **SAFE MODE** on the phone | The previous launch closed while starting a stream. This launch uses the standard (MP4) engine and doesn't auto-start; press Start. **Return to normal mode** (on the phone's red notice or the settings page) goes back to the low-latency engine. |
 | **SELF-CHECK** in the log | The app failed to start twice in a row, so its saved settings were reset to defaults. |
-| Engine shows `MP4` | The low-latency engine stalled twice and the app switched automatically. Reopen the app to retry. |
+| Engine shows `MP4` | The low-latency engine stalled twice and the app switched automatically. **Return to normal mode** retries the low-latency engine. |
+| The app closes by itself | Switch on Network > Log page and run `tools\Get-Phone-Log.cmd`: the log keeps the last three sessions, marked CRASHED / closed normally / ended abruptly. For a Windows crash dump, see `Crash-Dumps.ps1` below. |
 | Stream stops when the screen locks | Expected (Windows limitation). Keep the app in front; the blackout screen keeps the screen awake. |
 | Battery drains / "Charger insufficient" | Better power (2 A charger, powered hub) or 1080p. Keep the blackout on. |
 | Heat notice | Give the phone air (out of a case, not in the sun), lower the resolution, or turn on *Lower to 1080p*. |
@@ -154,10 +171,11 @@ The signing key (`W10MWebCam/W10MWebCam_TemporaryKey.pfx`) is not in the reposit
 |---|---|
 | `Build-And-Deploy.cmd` | Build Release ARM and install on the phone (USB first, then Wi-Fi). The app opens by itself after install. Bump `Version` in the manifest for every install. |
 | `Install-Only.cmd` | Re-install the last build without rebuilding |
-| `Get-Phone-Log.cmd` | Download the phone's log (including the previous session, which survives a crash) to `tools\phone-log.txt` and open it |
+| `Get-Phone-Log.cmd` | Download the phone's log (the last three sessions, which survive a crash) to `tools\phone-log.txt` and open it. Needs Network > Log page on |
 | `Test-USB-Video.cmd` | Records 15 s of the USB stream to `tools\usb8020-test.h264` to check it works without OBS |
 | `Soak-Monitor.ps1` | Long-run recorder: samples `/status` every 30 s (over USB, or `-Phone IP` over Wi-Fi) to `tools\soak\*.csv` and keeps an HTML report with graphs and a summary (availability, restarts, heat time, fps, memory trend) |
 | `Monitor-Portal.ps1` | Logs whole-phone CPU, GPU and battery from Device Portal once a minute (`-Pair PIN` first) |
+| `Enable-Crash-Dumps.cmd`, `Get-Crash-Dump.cmd` (`Crash-Dumps.ps1`) | Switch on Windows crash dumps for W10MWebCam through Device Portal (per installed version: run again after an update), list them, and download them to `tools\dump\`. First time: `Crash-Dumps.ps1 -Pair PIN` with the pairing code from the phone |
 | `Remove-Dead-IpOverUsb-Keys.cmd` | Optional, run as admin: deletes unused `LumiaCam*` IP-over-USB registry entries from early development |
 
 Put the phone's Wi-Fi address in `tools\phone-ip.txt` (one line, not committed) for the Wi-Fi install fallback and the

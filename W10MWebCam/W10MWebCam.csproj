@@ -94,6 +94,9 @@
     <Compile Include="MainPage.Adjust.cs">
       <DependentUpon>MainPage.xaml</DependentUpon>
     </Compile>
+    <Compile Include="MainPage.Network.cs">
+      <DependentUpon>MainPage.xaml</DependentUpon>
+    </Compile>
     <Compile Include="MainPage.Status.cs">
       <DependentUpon>MainPage.xaml</DependentUpon>
     </Compile>
@@ -104,6 +107,8 @@
     <Compile Include="Streaming\PowerMonitor.cs" />
     <Compile Include="Streaming\HttpApi.cs" />
     <Compile Include="Streaming\WebPage.cs" />
+    <Compile Include="Streaming\StatsPage.cs" />
+    <Compile Include="Streaming\WebLogin.cs" />
   </ItemGroup>
   <ItemGroup>
     <AppxManifest Include="Package.appxmanifest">

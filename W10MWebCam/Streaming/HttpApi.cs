@@ -21,12 +21,17 @@ namespace W10MWebCam.Streaming
     /// <summary>
     /// The small web interface. Served on the USB port (http://127.0.0.1:8020, next to the video) and on
     /// http://PHONE-IP:5001 over Wi-Fi:
-    ///   /                 the app log (plain text; tools\Get-Phone-Log.cmd reads it)
+    ///   /, /settings      the settings page (also /camera)
     ///   /status           health as JSON (for monitoring and tools\Soak-Monitor.ps1)
-    ///   /settings         the settings page (also /camera)
+    ///   /log              the app log, plain text (tools\Get-Phone-Log.cmd) - only with the Log page switch on
+    ///   /stats            graphs of the last 12 hours of status samples - only with the Stats page switch on
     ///   /settings/state   everything the page shows, as JSON
     ///   /settings/set     POST: change settings - only over the USB cable, only from the page itself
-    /// Over Wi-Fi everything is view-only: the app has no login, so only the PC the phone is plugged into may change it.
+    ///   /login            over Wi-Fi: asks the browser for the login, then back to /settings
+    /// Over USB (the PC the phone is plugged into) settings can always be changed. Over Wi-Fi the pages are view only until
+    /// a login is set on the phone; then changes need that login (HTTP Digest, the browser asks for it).
+    /// The phone's Network section switches the whole web interface (on by default), the log page and the stats page
+    /// (both off by default). The video on the same ports is not affected.
     /// Adapted from W10MSecurityCam's HttpApi (its RTSP sniffing and login are not needed here).
     /// </summary>
     internal sealed class HttpApi
@@ -34,6 +39,11 @@ namespace W10MWebCam.Streaming
         public const string ClientHeader = "W10MWebCam";
 
         public Func<string> GetLog = () => "";
+        public Func<string> GetStatsRows = () => "";
+        public volatile bool WebEnabled = true, LogEnabled, StatsEnabled;
+        public WebLogin Login = new WebLogin();
+        /// <summary>The phone's own Wi-Fi address (for the Host check on Wi-Fi changes).</summary>
+        public Func<string> GetPhoneAddress = () => "";
         public Func<Task<string>> GetStatusJson = () => Task.FromResult("{}");
         public Func<Task<string>> GetSettingsJson = () => Task.FromResult("{}");
         /// <summary>Applies form fields; returns a one-line result text.</summary>
@@ -44,27 +54,54 @@ namespace W10MWebCam.Streaming
             try
             {
                 string path = r.Path.TrimEnd('/');
-                if (path == "" || path == "/log")
-                    return Reply(200, "OK", "text/plain; charset=utf-8", GetLog(), "Cache-Control: no-store\r\n");
+                if (!WebEnabled)
+                    return Reply(403, "Forbidden", "text/plain", "The web page is switched off on the phone (W10MWebCam > Network > Web page).\n");
+                if (path == "/log")
+                    return LogEnabled
+                        ? Reply(200, "OK", "text/plain; charset=utf-8", GetLog(), "Cache-Control: no-store\r\n")
+                        : Reply(403, "Forbidden", "text/plain", "The log page is switched off. Switch it on on the phone (Network > Log page) or on the settings page.\n");
+                if (path == "/stats")
+                    return StatsEnabled
+                        ? Reply(200, "OK", "text/html; charset=utf-8", StatsPage.Html.Replace("/*ROWS*/", GetStatsRows()), "Cache-Control: no-store\r\n")
+                        : Reply(403, "Forbidden", "text/plain", "The stats page is switched off. Switch it on on the phone (Network > Stats page) or on the settings page; it shows the samples taken since then.\n");
                 if (path == "/status")
                     return Reply(200, "OK", "application/json", await GetStatusJson(), "Cache-Control: no-store\r\n");
-                if (path == "/settings" || path == "/camera")
+                if (path == "" || path == "/settings" || path == "/camera")
                     return Reply(200, "OK", "text/html; charset=utf-8", WebPage.Html, "Cache-Control: no-store\r\n");
                 if (path == "/settings/state")
-                    return Reply(200, "OK", "application/json", WithAccess(await GetSettingsJson(), r.FromUsb, null), "Cache-Control: no-store\r\n");
+                    return Reply(200, "OK", "application/json", WithAccess(await GetSettingsJson(), r, CanWrite(r), null), "Cache-Control: no-store\r\n");
+                if (path == "/login")
+                {
+                    // Over USB, or already logged in: straight back to the page.
+                    if (CanWrite(r)) return Reply(302, "Found", "text/plain", "", "Location: /settings\r\n");
+                    if (!Login.Enabled)
+                        return Reply(403, "Forbidden", "text/plain", "No login is set. Set one on the phone (W10MWebCam > Network > Login) to change settings over Wi-Fi.\n");
+                    Login.Check(r.Method, Header(r, "Authorization"), out bool stale);
+                    return Reply(401, "Unauthorized", "text/html; charset=utf-8",
+                        "<!doctype html><meta http-equiv='refresh' content='0;url=/settings'><p>Login needed. <a href='/login'>Try again</a></p>\n",
+                        Login.Challenge(stale));
+                }
                 if (path == "/settings/set")
                 {
                     if (r.Method != "POST") return Reply(405, "Method Not Allowed", "text/plain", "POST only\n");
-                    if (!r.FromUsb) return Reply(403, "Forbidden", "text/plain", "Settings can only be changed over the USB cable\n");
-                    // A web page on another site could make the PC's browser send a POST to 127.0.0.1. Such a page cannot add
-                    // a custom header without our permission (never granted), and a DNS-rebinding page would show its own
-                    // host name, so both checks together leave only this app's own page.
-                    if (Header(r, "X-Requested-With") != ClientHeader || !IsLocalHost(Header(r, "Host")))
-                        return Reply(403, "Forbidden", "text/plain", "Use the settings page at http://127.0.0.1:8020/settings\n");
-                    string result = ApplySettings != null ? await ApplySettings(ParseForm(r.Body.Length > 0 ? r.Body : r.Query)) : "";
-                    return Reply(200, "OK", "application/json", WithAccess(await GetSettingsJson(), true, result), "Cache-Control: no-store\r\n");
+                    // A web page on another site could make the browser send a POST here. Such a page cannot add a custom
+                    // header without our permission (never granted), and a DNS-rebinding page would show its own host name,
+                    // so both checks together leave only this app's own page.
+                    if (Header(r, "X-Requested-With") != ClientHeader || !HostIsPhone(Header(r, "Host"), r.FromUsb))
+                        return Reply(403, "Forbidden", "text/plain", "Use the settings page (http://127.0.0.1:8020/settings over USB)\n");
+                    if (!r.FromUsb)
+                    {
+                        if (!Login.Enabled)
+                            return Reply(403, "Forbidden", "text/plain", "View only over Wi-Fi: set a login on the phone (Network > Login), or use the USB cable\n");
+                        if (!Login.Check(r.Method, Header(r, "Authorization"), out bool stale))
+                            return Reply(401, "Unauthorized", "text/plain", "Login needed\n", Login.Challenge(stale));
+                    }
+                    var form = ParseForm(r.Body.Length > 0 ? r.Body : r.Query);
+                    form["_via"] = r.FromUsb ? "USB" : "Wi-Fi";
+                    string result = ApplySettings != null ? await ApplySettings(form) : "";
+                    return Reply(200, "OK", "application/json", WithAccess(await GetSettingsJson(), r, true, result), "Cache-Control: no-store\r\n");
                 }
-                return Reply(404, "Not Found", "text/plain", "Not found. Try / (log), /status or /settings\n");
+                return Reply(404, "Not Found", "text/plain", "Not found. Try /settings, /status, /log or /stats\n");
             }
             catch (Exception ex)
             {
@@ -72,18 +109,27 @@ namespace W10MWebCam.Streaming
             }
         }
 
-        private static bool IsLocalHost(string host)
+        /// <summary>Over USB always; over Wi-Fi with a login set and the browser sending it.</summary>
+        private bool CanWrite(HttpRequest r) =>
+            r.FromUsb || (Login.Enabled && Login.Check(r.Method, Header(r, "Authorization"), out bool _));
+
+        /// <summary>The Host header names the phone: 127.0.0.1 / localhost over USB, the phone's Wi-Fi address otherwise.</summary>
+        private bool HostIsPhone(string host, bool fromUsb)
         {
-            if (string.IsNullOrEmpty(host)) return true; // HTTP/1.0 clients (PowerShell scripts) may leave it out
+            if (string.IsNullOrEmpty(host)) return fromUsb; // HTTP/1.0 clients (PowerShell scripts) may leave it out
             int colon = host.LastIndexOf(':');
             string name = colon > 0 && host.IndexOf(']') < colon ? host.Substring(0, colon) : host;
-            return name == "127.0.0.1" || name.Equals("localhost", StringComparison.OrdinalIgnoreCase);
+            if (name == "127.0.0.1" || name.Equals("localhost", StringComparison.OrdinalIgnoreCase)) return true;
+            string phone = GetPhoneAddress();
+            return !fromUsb && !string.IsNullOrEmpty(phone) && name == phone;
         }
 
-        private static string WithAccess(string json, bool canWrite, string result)
+        private string WithAccess(string json, HttpRequest r, bool canWrite, string result)
         {
             if (string.IsNullOrEmpty(json) || json[0] != '{') return json;
-            string extra = "\"canWrite\":" + (canWrite ? "true" : "false");
+            string extra = "\"canWrite\":" + (canWrite ? "true" : "false") + ",\"fromUsb\":" + (r.FromUsb ? "true" : "false") +
+                           ",\"loginSet\":" + (Login.Enabled ? "true" : "false") +
+                           (canWrite ? ",\"user\":\"" + Login.UserName.Replace("\\", "").Replace("\"", "") + "\"" : "");
             if (!string.IsNullOrEmpty(result))
                 extra += ",\"result\":\"" + result.Split('\n')[0].Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
             return "{" + extra + (json.Length > 2 ? "," : "") + json.Substring(1);

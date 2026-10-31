@@ -21,6 +21,9 @@ namespace W10MWebCam
             _http.GetStatusJson = () => OnUiAsync(() => Task.FromResult(StatusJson().Stringify()));
             _http.GetSettingsJson = () => OnUiAsync(() => Task.FromResult(SettingsJson().Stringify()));
             _http.ApplySettings = form => OnUiAsync(() => ApplySettingsAsync(form));
+            _http.GetStatsRows = StatsRows;
+            _http.GetPhoneAddress = () => _wifiAddress;
+            try { _http.Login.Load(); } catch (Exception ex) { Log("Login: " + ex.Message); }
         }
 
         /// <summary>Runs f on the UI thread (the controls live there) and returns its result to the web server thread.</summary>
@@ -131,6 +134,9 @@ namespace W10MWebCam
             o["usbPort"] = Num(UsbPort);
             o["wifiPort"] = Num(WifiPort);
             o["logPort"] = Num(LogPort);
+            o["logOn"] = Bool(LogToggle.IsOn);
+            o["statsOn"] = Bool(StatsToggle.IsOn);
+            o["front"] = Bool(_camera != null && _camera.UsingFrontCamera);
             return o;
         }
 
@@ -140,6 +146,9 @@ namespace W10MWebCam
             foreach (var s in items) a.Add(JsonValue.CreateStringValue(s));
             return a;
         }
+
+        /// <summary>"USB" or "Wi-Fi": where a change came from (added by HttpApi).</summary>
+        private static string Via(IDictionary<string, string> f) => f.TryGetValue("_via", out var v) ? v : "USB";
 
         private static bool On(string v) => v == "on" || v == "1" || v == "true" || v == "auto";
 
@@ -155,17 +164,19 @@ namespace W10MWebCam
                 bool want = v == "start";
                 if (_camera != null && want != _camera.IsStreaming) { await ToggleStreamingAsync(); done.Add(want ? "stream started" : "stream stopped"); }
             }
-            if (f.TryGetValue("engine", out v) && v == "normal" && _camera != null && _safeMode)
+            if (f.TryGetValue("engine", out v) && v == "normal" && _safeMode) done.Add(await ReturnToNormalModeAsync());
+            if (f.TryGetValue("lens", out v) && (v == "front" || v == "rear") && _camera != null && (v == "front") != _camera.UsingFrontCamera)
             {
-                _safeMode = false;
-                _nativeStalls = 0;
-                _camera.UseNativeSink = true;
-                done.Add("back to the low-latency engine");
-                if (_camera.IsStreaming) await RestartStreamAsync();
+                done.Add(await SwitchCameraAsync(v == "front"));
+                if (done.Count > 0 && f.Count == 2) { Log("Settings page (" + Via(f) + "): " + done[0]); return "Done: " + done[0]; }
             }
+            // The web page itself can only be switched off on the phone (the page would cut itself off).
+            if (f.TryGetValue("logpage", out v)) { LogToggle.IsOn = On(v); done.Add("log page " + (On(v) ? "on" : "off")); }
+            if (f.TryGetValue("statspage", out v)) { StatsToggle.IsOn = On(v); done.Add("stats page " + (On(v) ? "on" : "off")); }
+            if (f.TryGetValue("password", out v)) done.Add(SaveLogin(f.TryGetValue("user", out var lu) ? lu : _http.Login.UserName, v));
             // Video settings: changing a combo box restarts a running stream (Setting_Changed), as on the phone.
             if (f.TryGetValue("format", out v) && int.TryParse(v, out int fi) && fi >= 0 && fi < ResolutionBox.Items.Count && fi != ResolutionBox.SelectedIndex)
-            { ResolutionBox.SelectedIndex = fi; _settings.Values["Format"] = ResolutionBox.SelectedItem.ToString(); done.Add("resolution " + ResolutionBox.SelectedItem); }
+            { ResolutionBox.SelectedIndex = fi; _settings.Values[FormatSettingKey] = ResolutionBox.SelectedItem.ToString(); done.Add("resolution " + ResolutionBox.SelectedItem); }
             if (f.TryGetValue("bitrate", out v) && int.TryParse(v, out int bi) && bi >= 0 && bi < BitrateBox.Items.Count && bi != BitrateBox.SelectedIndex)
             { BitrateBox.SelectedIndex = bi; _settings.Values["Bitrate"] = bi; done.Add("bitrate " + BitrateBox.SelectedItem); }
             if (f.TryGetValue("keyframe", out v) && int.TryParse(v, out int ki) && ki >= 0 && ki < KeyframeBox.Items.Count && ki != KeyframeBox.SelectedIndex)
@@ -227,7 +238,7 @@ namespace W10MWebCam
             { SaveFocusToggle.IsOn = On(v); done.Add("hold focus " + (On(v) ? "on" : "off")); }
 
             if (done.Count == 0) return "Nothing changed";
-            Log("Settings page (USB): " + string.Join(", ", done));
+            Log("Settings page (" + Via(f) + "): " + string.Join(", ", done));
             return "Done: " + string.Join(", ", done);
         }
     }

@@ -44,6 +44,23 @@ Renamed from LumiaCam, and the improvements from its forks (W10MSecurityCam 1.1,
   visible after the app has been reopened; camera-control handlers catch and log errors instead of ending the app.
 - Switching focus to manual starts from the last sensible lens position: the 950's autofocus sometimes reports the near
   end stop (0) while the picture is sharp, which made the manual picture jump out of focus.
+- **Network switches** (as in W10MDashcam): Web page (settings and /status; on by default), Log page (/log) and Stats
+  page (/stats), both off by default. The video is never affected. `/` now opens the settings page; the log is at /log.
+- **Stats page** (/stats, ported from W10MDashcam): graphs of the last 12 hours (frame rate, bitrate, latency, viewers,
+  battery, power, CPU, memory, Wi-Fi, states) and a summary (streaming %, stream stops, app restarts, heat, charger
+  short, memory trend). Samples every 30 s only while it is switched on.
+- **Front camera:** a Rear / Front choice (phone Video section and the settings page). Switching reopens the camera and
+  restarts a running stream; each camera remembers its own resolution. The phone's preview of the front camera is mirrored;
+  the stream is not.
+- **Login for changes over Wi-Fi** (optional, set on the phone under Network or on the settings page over USB): with a
+  login set, the settings page can change settings over Wi-Fi after the browser asks for it (HTTP Digest, as in
+  W10MSecurityCam). Without one, Wi-Fi stays view only. USB never needs it.
+- **Clearer addresses:** the phone's main screen shows only the video and settings addresses, grouped USB cable / Wi-Fi;
+  the Network section and the settings page list every page's USB and Wi-Fi address under its switch. The settings page
+  has a Connect section with the same grouping, and VLC instructions (`:demux=h264`).
+- **Return to normal mode** button on the phone's red safe-mode notice (it was only on the settings page).
+- Tools: `Crash-Dumps.ps1` with `Enable-Crash-Dumps.cmd` / `Get-Crash-Dump.cmd` for Windows crash dumps through Device
+  Portal; `Get-Phone-Log.cmd` reads /log and says when the log page is off.
 - 6 Mbps added to the bitrate list.
 
 ## 1.0 — LumiaCam

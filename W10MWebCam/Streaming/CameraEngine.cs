@@ -63,6 +63,11 @@ namespace W10MWebCam.Streaming
         public double Mbps { get; private set; }
         public double KeyframeIntervalSec { get; private set; }
 
+        /// <summary>Use the front (selfie) camera instead of the rear one. Set before InitializeAsync.</summary>
+        public bool UseFrontCamera;
+        /// <summary>Whether the chosen camera was found (false: the other one is in use).</summary>
+        public bool UsingFrontCamera { get; private set; }
+
         /// <summary>Seconds between keyframes.</summary>
         public double KeyframeSeconds = 1.0;
 
@@ -70,8 +75,12 @@ namespace W10MWebCam.Streaming
         {
             var devices = await DeviceInformation.FindAllAsync(DeviceClass.VideoCapture);
             if (devices.Count == 0) throw new Exception("No camera found on this device.");
-            var dev = devices.FirstOrDefault(d => d.EnclosureLocation != null && d.EnclosureLocation.Panel == Panel.Back) ?? devices[0];
-            Log("Camera: " + dev.Name);
+            var want = UseFrontCamera ? Panel.Front : Panel.Back;
+            var dev = devices.FirstOrDefault(d => d.EnclosureLocation != null && d.EnclosureLocation.Panel == want);
+            if (dev == null) Log((UseFrontCamera ? "No front" : "No rear") + " camera found - using the first camera instead");
+            dev = dev ?? devices[0];
+            UsingFrontCamera = dev.EnclosureLocation != null && dev.EnclosureLocation.Panel == Panel.Front;
+            Log("Camera: " + dev.Name + (UsingFrontCamera ? " (front)" : ""));
 
             Capture = new MediaCapture();
             Capture.Failed += (s, e) => Log("Camera error: " + e.Message);
@@ -175,7 +184,7 @@ namespace W10MWebCam.Streaming
             // The phone's encoder ignores the requested bitrate, so the decoder setup (SPS/PPS)
             // for a resolution never changes. Remember it so later starts need no probe recording.
             var settings = ApplicationData.Current.LocalSettings.Values;
-            string cacheKey = "Enc|" + f.Width + "x" + f.Height + "@" + Math.Round(f.Fps);
+            string cacheKey = "Enc|" + (UsingFrontCamera ? "front|" : "") + f.Width + "x" + f.Height + "@" + Math.Round(f.Fps);
             if (settings[cacheKey] is string cached && TryLoadCached(cached))
             {
                 _configKey = key;

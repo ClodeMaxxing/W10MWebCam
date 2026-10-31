@@ -23,6 +23,7 @@ W10MWebCam/                      C# UWP app (.NET Native, ARM), SDK 10.0.19041, 
   MainPage.Power.cs              power readout, charger notice, heat detection + optional step-down, stop on power loss
   MainPage.Web.cs                /status and /settings/state JSON, applying /settings/set through the phone's controls
   MainPage.Adjust.cs             adjusting on the phone: picture on (one stream restart) until 60 s after the last touch
+  MainPage.Network.cs            web / log / stats page switches, stats samples, rear/front camera, safe-mode button
   MainPage.Status.cs             status card (tiles, badges, meters), folding sections, cached brushes (theme from W10MDashcam)
   Streaming/CameraEngine.cs      MediaCapture setup, format list, encoder profile, engine selection, frame handler
   Streaming/CameraTuning.cs      camera controls (ported from W10MSecurityCam)
@@ -30,6 +31,7 @@ W10MWebCam/                      C# UWP app (.NET Native, ARM), SDK 10.0.19041, 
   Streaming/StreamServer.cs      TCP listeners (5000 Wi-Fi, 8020 USB), keyframe-synced broadcast, backlog control,
                                  HTTP sniffing on the same ports
   Streaming/HttpApi.cs           web routes, request reading/parsing, write protection
+  Streaming/StatsPage.cs         /stats: 12 h of samples as graphs (ported from W10MDashcam)
   Streaming/WebPage.cs           the settings page (HTML + script in a C# verbatim string: no double quotes inside)
   Streaming/LogServer.cs         HTTP on 5001 (Wi-Fi)
   Streaming/Mp4TapStream.cs      fallback engine: IRandomAccessStream the MP4 recorder writes into
@@ -84,9 +86,18 @@ CameraEngine.OnNal ─► StreamServer.Broadcast ─► each viewer: SPS+PPS, wa
   Port 5001 (`LogServer`) serves the same routes for Wi-Fi.
 - Viewers are logged only when their video starts flowing ("Viewer connected: PC over USB - video flowing"), so the
   page polling every 2 s does not flood the log. `ClientCount` counts synced viewers only.
-- **Write protection** (no login in this app): `/settings/set` needs (1) the USB cable (remote address 127.0.0.1),
-  (2) the header `X-Requested-With: W10MWebCam` (another website cannot add a custom header without a CORS grant,
-  which is never given) and (3) a `Host` of 127.0.0.1 or localhost (defeats DNS rebinding). Wi-Fi is view only.
+- **Switches** (`HttpApi.WebEnabled / LogEnabled / StatsEnabled`, phone Network section): web page on by default; log
+  and stats pages off (most people only use the app). Web off answers every web request with 403 (video unaffected)
+  and can only be undone on the phone. `/` serves the settings page; the log moved to `/log` in 1.1.
+- **Stats samples:** one row every 30 s, kept for 12 h (1440 rows), only while the stats page is on; the page gets
+  them inlined (`/*ROWS*/`). Columns match the comment in `MainPage.Network.cs.SampleStats`.
+- **Write protection:** `/settings/set` needs (1) the USB cable (remote address 127.0.0.1), or over Wi-Fi a login set on
+  the phone and the browser sending it (HTTP Digest, `Streaming/WebLogin.cs`, ported from W10MSecurityCam's RTSP login;
+  kept in the PasswordVault; no factory login, so Wi-Fi is view only until one is set); (2) the header
+  `X-Requested-With: W10MWebCam` (another website cannot add a custom header without a CORS grant, which is never
+  given); (3) a `Host` naming the phone: 127.0.0.1/localhost over USB, the phone's Wi-Fi address over Wi-Fi (defeats
+  DNS rebinding). `/login` makes the browser ask for the login. Over Wi-Fi with a login set the page enables its controls
+  and the first change gets a 401, so the browser asks then. Reading over Wi-Fi needs no login.
 - Changes from the page are applied by setting the phone's own controls on the UI thread (`OnUiAsync`), so both screens
   agree and all rules (restart on video changes, preview only while stopped, flashlight limit) apply to both.
 

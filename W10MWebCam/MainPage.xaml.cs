@@ -159,9 +159,26 @@ namespace W10MWebCam
                 // Servers first, so the log is reachable even if the camera fails.
                 try { await _server.StartAsync(); } catch (Exception ex) { Log("Video server: " + ex.Message); }
                 try { await _logServer.StartAsync(LogPort); } catch (Exception ex) { Log("Web server: " + ex.Message); }
+                await InitCameraAsync(false);
+            }
+            catch (Exception ex)
+            {
+                _loading = false;
+                Log("ERROR starting camera: " + ex.Message);
+            }
+        }
 
+        /// <summary>
+        /// Opens the chosen camera, fills the controls and, at app start, auto-starts (or enters SAFE MODE).
+        /// resumeStreaming: after switching cameras, start the stream again straight away.
+        /// </summary>
+        private async Task InitCameraAsync(bool resumeStreaming)
+        {
+            try
+            {
                 Log("Starting camera...");
-                _camera = new CameraEngine { Log = Log };
+                _camera = new CameraEngine { Log = Log, UseFrontCamera = (_settings.Values["Camera"] as string) == "front" };
+                if (_safeMode) _camera.UseNativeSink = false;
                 _camera.NalReady += _server.Broadcast;
                 await _camera.InitializeAsync();
                 _tuning.Describe(_camera.Capture);
@@ -172,7 +189,7 @@ namespace W10MWebCam
                 foreach (var f in formats) ResolutionBox.Items.Add(f);
                 Log(formats.Count + " recording formats, up to " + (formats.Count > 0 ? formats[0].ToString() : "none"));
 
-                string savedFormat = _settings.Values["Format"] as string;
+                string savedFormat = _settings.Values[FormatSettingKey] as string;
                 ResolutionBox.SelectedItem = formats.FirstOrDefault(f => f.ToString() == savedFormat)
                     ?? formats.FirstOrDefault(f => f.Width == 1920 && f.Height == 1080 && Math.Round(f.Fps) == 30)
                     ?? formats.FirstOrDefault();
@@ -185,12 +202,14 @@ namespace W10MWebCam
                 PreviewToggle.IsOn = GetBool("Preview", true);
                 LoadPowerSettings();
                 LoadCameraSettings();
+                LoadNetworkSettings();
                 _loading = false;
 
-                bool crashedLastTime = _settings.Values["StartInProgress"] is bool sip && sip;
-                bool autoStarting = AutoStartToggle.IsOn && !crashedLastTime;
+                bool crashedLastTime = !resumeStreaming && _settings.Values["StartInProgress"] is bool sip && sip;
+                bool autoStarting = resumeStreaming || (AutoStartToggle.IsOn && !crashedLastTime);
 
                 PreviewElement.Source = _camera.Capture;
+                PreviewElement.FlowDirection = _camera.UsingFrontCamera ? FlowDirection.RightToLeft : FlowDirection.LeftToRight; // mirror the selfie view on the phone only
                 // Don't spin the preview up just to switch it off again: starting 4K recording while the
                 // preview is toggled right after camera power-up crashes the camera pipeline.
                 if (PreviewToggle.IsOn && !(autoStarting && PowerSaveToggle.IsOn)) await _camera.SetPreviewAsync(true);
@@ -213,7 +232,7 @@ namespace W10MWebCam
                 }
                 else if (autoStarting && StartButton.IsEnabled)
                 {
-                    Log("Auto-start: letting the camera settle for 2 s");
+                    Log((resumeStreaming ? "Restarting the stream" : "Auto-start") + ": letting the camera settle for 2 s");
                     await Task.Delay(2000);
                     await ToggleStreamingAsync();
                 }
@@ -225,6 +244,9 @@ namespace W10MWebCam
             }
         }
 
+        /// <summary>The resolution is remembered per camera (the front one has a different list).</summary>
+        private string FormatSettingKey => _camera != null && _camera.UsingFrontCamera ? "FormatFront" : "Format";
+
         private bool GetBool(string key, bool fallback) => _settings.Values[key] is bool b ? b : fallback;
 
         private void ShowAddresses()
@@ -235,11 +257,9 @@ namespace W10MWebCam
                 .Where(ip => !ip.StartsWith("169.254.")) // link-local addresses aren't reachable from the PC
                 .ToList();
             _wifiAddress = ips.FirstOrDefault() ?? "";
-            var lines = new List<string> { "USB: tcp://127.0.0.1:" + UsbPort };
-            lines.AddRange(ips.Select(ip => "Wi-Fi: tcp://" + ip + ":" + WifiPort));
-            lines.Add("Settings: http://127.0.0.1:" + UsbPort + "/settings");
-            AddressText.Text = string.Join("\n", lines);
-            Log("Addresses: " + string.Join("  ", lines) + (ips.Count > 0 ? "  (log: http://" + ips[0] + ":" + LogPort + ")" : ""));
+            UpdateAddresses();
+            Log("Addresses: video USB tcp://127.0.0.1:" + UsbPort + (_wifiAddress.Length > 0 ? ", Wi-Fi tcp://" + _wifiAddress + ":" + WifiPort : ", no Wi-Fi") +
+                "; settings http://127.0.0.1:" + UsbPort + "/settings" + (_wifiAddress.Length > 0 ? ", http://" + _wifiAddress + ":" + LogPort + "/settings" : ""));
         }
 
         private string _wifiAddress = "";
@@ -300,7 +320,7 @@ namespace W10MWebCam
                     var video = EffectiveVideo();
                     if (video == null) { Log("Pick a resolution first"); return; }
                     if (KeyframeBox.SelectedItem is KeyframeOption ko) _camera.KeyframeSeconds = ko.Seconds;
-                    if (!_protect) _settings.Values["Format"] = video.Item1.ToString();
+                    if (!_protect) _settings.Values[FormatSettingKey] = video.Item1.ToString();
                     _settings.Values["Bitrate"] = BitrateBox.SelectedIndex;
                     _settings.Values["Keyframe"] = KeyframeBox.SelectedIndex;
 
@@ -448,6 +468,7 @@ namespace W10MWebCam
         {
             if (!_launchHealthy && (DateTime.Now - _launchedAt).TotalSeconds >= 20) MarkLaunchHealthy();
             PowerTick();
+            SampleStats();
             CameraTick();
             UpdateStats();
         }

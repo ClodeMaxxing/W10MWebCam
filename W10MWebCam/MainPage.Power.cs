@@ -142,6 +142,7 @@ namespace W10MWebCam
             _chargerNotice = charger;
             AlertText.Text = alert;
             AlertBox.Visibility = alert.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+            NormalModeButton.Visibility = _safeMode ? Visibility.Visible : Visibility.Collapsed;
             NoticeText.Text = charger;
             NoticeBox.Visibility = charger.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
             string cpu = _power.CpuText();

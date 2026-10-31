@@ -57,6 +57,25 @@ namespace W10MWebCam.Streaming
 
         public async Task<byte[]> HandleAsync(HttpRequest r)
         {
+            byte[] reply = await AnswerAsync(r);
+            return r.Method == "HEAD" ? HeadersOnly(reply) : reply;
+        }
+
+        /// <summary>For HEAD: the same headers (Content-Length included), without the body.</summary>
+        private static byte[] HeadersOnly(byte[] reply)
+        {
+            for (int i = 0; i + 3 < reply.Length; i++)
+                if (reply[i] == '\r' && reply[i + 1] == '\n' && reply[i + 2] == '\r' && reply[i + 3] == '\n')
+                {
+                    var head = new byte[i + 4];
+                    System.Buffer.BlockCopy(reply, 0, head, 0, head.Length);
+                    return head;
+                }
+            return reply;
+        }
+
+        private async Task<byte[]> AnswerAsync(HttpRequest r)
+        {
             try
             {
                 string path = r.Path.TrimEnd('/');

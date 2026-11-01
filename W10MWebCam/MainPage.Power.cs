@@ -1,7 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Windows.Devices.Power;
+using Windows.Foundation.Metadata;
+using Windows.Media.Core;
+using Windows.Media.Playback;
 using Windows.System.Power;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
@@ -25,6 +29,35 @@ namespace W10MWebCam
         private DateTime _protectSince = DateTime.MinValue;
         private string _notice = "", _alert = "", _chargerNotice = "", _heat = "Healthy";
         private BatteryReport _battery;
+        private MediaPlayer _chime;
+
+        /// <summary>A short sound from the app's own files (media volume): ok = all good, else a warning. From W10MDashcam.</summary>
+        private void PlayChime(bool ok)
+        {
+            try
+            {
+                if (_chime == null) _chime = new MediaPlayer { AudioCategory = MediaPlayerAudioCategory.SoundEffects, Volume = 1.0 };
+                _chime.Source = MediaSource.CreateFromUri(new Uri(ok ? "ms-appx:///Assets/ClipSaved.wav" : "ms-appx:///Assets/ClipNone.wav"));
+                _chime.Play();
+            }
+            catch (Exception ex) { Log("Chime: " + ex.Message); }
+        }
+
+        private static async Task BuzzAsync(int times)
+        {
+            try
+            {
+                if (!ApiInformation.IsTypePresent("Windows.Phone.Devices.Notification.VibrationDevice")) return;
+                var v = Windows.Phone.Devices.Notification.VibrationDevice.GetDefault();
+                if (v == null) return;
+                for (int i = 0; i < times; i++)
+                {
+                    v.Vibrate(TimeSpan.FromMilliseconds(times == 1 ? 250 : 120));
+                    await Task.Delay(times == 1 ? 250 : 260);
+                }
+            }
+            catch { }
+        }
 
         private void LoadPowerSettings()
         {
@@ -129,6 +162,8 @@ namespace W10MWebCam
                 var after = EffectiveVideo();
                 Log("HEAT PROTECTION ON: charging has paused on a good charger, so the phone is probably too hot. Lowering the stream to " +
                     after?.Item1 + ", " + (after?.Item2 / 1e6)?.ToString("0") + " Mbps, black screen, stabilization off, focus held and the flashlight locked until charging resumes (your settings are kept)");
+                PlayChime(false);
+                var buzz = BuzzAsync(2);
                 _tuning.SaveOis = true; _tuning.SaveFocus = true;
                 ShowForcedSwitches();
                 if (!PowerSaveToggle.IsOn) PowerSaveToggle.IsOn = true; // its handler applies the black screen (and skips saving while _protect)
@@ -148,6 +183,8 @@ namespace W10MWebCam
             {
                 _protect = false;
                 Log("HEAT PROTECTION OFF (" + why + "): back to your own video and power-saving settings (the flashlight stays off)");
+                PlayChime(true);
+                var buzz = BuzzAsync(1);
                 _tuning.SaveOis = _pOis; _tuning.SaveFocus = _pFocus;
                 ShowForcedSwitches();
                 if (PowerSaveToggle.IsOn != _pBlackout) PowerSaveToggle.IsOn = _pBlackout; // its handler saves and applies it
@@ -241,6 +278,8 @@ namespace W10MWebCam
             {
                 _unplugAt = DateTime.Now.AddSeconds(limit);
                 Log("On battery - the stream stops in " + limit + " s unless power returns");
+                PlayChime(false);
+                var buzz = BuzzAsync(2);
             }
             int left = (int)Math.Ceiling((_unplugAt - DateTime.Now).TotalSeconds);
             if (left <= 0)

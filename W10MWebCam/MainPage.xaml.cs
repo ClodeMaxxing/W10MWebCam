@@ -66,6 +66,16 @@ namespace W10MWebCam
             public override string ToString() => Bps == 0 ? "Auto" : (Bps / 1000000) + " Mbps";
         }
 
+        /// <summary>The chosen bitrate in bits per second (0 = auto); saved as "BitrateBps".</summary>
+        private uint SelectedBitrateBps => (BitrateBox.SelectedItem as BitrateOption)?.Bps ?? 0;
+
+        /// <summary>Selects the list entry with this bitrate; a value the list doesn't have leaves the choice as it is.</summary>
+        private void SelectBitrate(uint bps)
+        {
+            for (int i = 0; i < BitrateBox.Items.Count; i++)
+                if (((BitrateOption)BitrateBox.Items[i]).Bps == bps) { BitrateBox.SelectedIndex = i; return; }
+        }
+
         private sealed class UnplugOption
         {
             public int Seconds; // 0 = never
@@ -199,8 +209,14 @@ namespace W10MWebCam
                 ResolutionBox.SelectedItem = formats.FirstOrDefault(f => f.ToString() == savedFormat)
                     ?? formats.FirstOrDefault(f => f.Width == 1920 && f.Height == 1080 && Math.Round(f.Fps) == 30)
                     ?? formats.FirstOrDefault();
-                if (_settings.Values["Bitrate"] is int savedBitrate && savedBitrate >= 0 && savedBitrate < BitrateBox.Items.Count)
-                    BitrateBox.SelectedIndex = savedBitrate;
+                if (_settings.Values["BitrateBps"] is int savedBps && savedBps >= 0)
+                    SelectBitrate((uint)savedBps);
+                else if (_settings.Values["Bitrate"] is int savedBitrate && savedBitrate >= 0 && savedBitrate < BitrateBox.Items.Count)
+                {
+                    BitrateBox.SelectedIndex = savedBitrate; // a list index, saved by versions before BitrateBps
+                    _settings.Values["BitrateBps"] = (int)SelectedBitrateBps;
+                }
+                _settings.Values.Remove("Bitrate");
                 if (_settings.Values["Keyframe"] is int kf && kf >= 0 && kf < KeyframeBox.Items.Count)
                     KeyframeBox.SelectedIndex = kf;
                 AutoStartToggle.IsOn = GetBool("AutoStart", true);
@@ -362,7 +378,7 @@ namespace W10MWebCam
                     if (video == null) { Log("Pick a resolution first"); return; }
                     if (KeyframeBox.SelectedItem is KeyframeOption ko) _camera.KeyframeSeconds = ko.Seconds;
                     if (!_protect) _settings.Values[FormatSettingKey] = video.Item1.ToString();
-                    _settings.Values["Bitrate"] = BitrateBox.SelectedIndex;
+                    _settings.Values["BitrateBps"] = (int)SelectedBitrateBps;
                     _settings.Values["Keyframe"] = KeyframeBox.SelectedIndex;
 
                     _settings.Values["StartInProgress"] = true; // cleared after 15 s of healthy streaming

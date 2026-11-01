@@ -184,7 +184,7 @@ namespace W10MWebCam
             if (f.TryGetValue("format", out v) && int.TryParse(v, out int fi) && fi >= 0 && fi < ResolutionBox.Items.Count && fi != ResolutionBox.SelectedIndex)
             { ResolutionBox.SelectedIndex = fi; _settings.Values[FormatSettingKey] = ResolutionBox.SelectedItem.ToString(); done.Add("resolution " + ResolutionBox.SelectedItem); }
             if (f.TryGetValue("bitrate", out v) && int.TryParse(v, out int bi) && bi >= 0 && bi < BitrateBox.Items.Count && bi != BitrateBox.SelectedIndex)
-            { BitrateBox.SelectedIndex = bi; _settings.Values["Bitrate"] = bi; done.Add("bitrate " + BitrateBox.SelectedItem); }
+            { BitrateBox.SelectedIndex = bi; _settings.Values["BitrateBps"] = (int)SelectedBitrateBps; done.Add("bitrate " + BitrateBox.SelectedItem); }
             if (f.TryGetValue("keyframe", out v) && int.TryParse(v, out int ki) && ki >= 0 && ki < KeyframeBox.Items.Count && ki != KeyframeBox.SelectedIndex)
             { KeyframeBox.SelectedIndex = ki; _settings.Values["Keyframe"] = ki; done.Add("keyframe every " + KeyframeBox.SelectedItem); }
             if (f.TryGetValue("unplug", out v) && int.TryParse(v, out int ui) && ui >= 0 && ui < UnplugBox.Items.Count)

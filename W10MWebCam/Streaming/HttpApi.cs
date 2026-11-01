@@ -55,8 +55,12 @@ namespace W10MWebCam.Streaming
         /// <summary>Applies form fields; returns a one-line result text.</summary>
         public Func<IDictionary<string, string>, Task<string>> ApplySettings;
 
+        /// <summary>When a request last came in over the USB cable (127.0.0.1): the phone's only sign that USB is connected.</summary>
+        public DateTime LastUsbRequest = DateTime.MinValue;
+
         public async Task<byte[]> HandleAsync(HttpRequest r)
         {
+            if (r.FromUsb) LastUsbRequest = DateTime.Now;
             byte[] reply = await AnswerAsync(r);
             return r.Method == "HEAD" ? HeadersOnly(reply) : reply;
         }

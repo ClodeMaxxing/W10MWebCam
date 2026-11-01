@@ -69,12 +69,43 @@ namespace W10MWebCam
 
         private int UnplugStopSeconds => (UnplugBox.SelectedItem as UnplugOption)?.Seconds ?? 0;
 
-        private void HeatAutoToggle_Toggled(object sender, RoutedEventArgs e)
+        /// <summary>Off asks first: without heat protection a hot phone keeps full video and the screen, and on a weak charger the battery drains.</summary>
+        private async void HeatAutoToggle_Toggled(object sender, RoutedEventArgs e)
         {
-            if (_loading) return;
-            _settings.Values["HeatAuto"] = HeatAutoToggle.IsOn;
-            if (!HeatAutoToggle.IsOn && _protect) { var _ = LeaveProtectionAsync("switched off"); }
+            if (_loading || !_uiReady) return;
+            if (!HeatAutoToggle.IsOn)
+            {
+                var dlg = new ContentDialog
+                {
+                    Title = "Turn heat protection off?",
+                    Content = "When the phone gets hot, nothing will be done about it: full video, the screen as set, the flashlight free. "
+                        + "On a charger that can't keep up (a PC USB port, a small adapter) the battery drains until the phone dies.",
+                    PrimaryButtonText = "Turn off",
+                    CloseButtonText = "Keep it on"
+                };
+                if (await dlg.ShowAsync() != ContentDialogResult.Primary)
+                {
+                    bool was = _loading; _loading = true;
+                    try { HeatAutoToggle.IsOn = true; } finally { _loading = was; }
+                    return;
+                }
+            }
+            SetHeatProtect(HeatAutoToggle.IsOn);
         }
+
+        /// <summary>From the switch or the web page (heatprotect=on|off).</summary>
+        private void SetHeatProtect(bool on)
+        {
+            _settings.Values["HeatAuto"] = on;
+            if (HeatAutoToggle.IsOn != on) { bool was = _loading; _loading = true; try { HeatAutoToggle.IsOn = on; } finally { _loading = was; } }
+            Log("Heat protection " + (on ? "on" : "OFF (the phone will not slow down when hot; on a weak charger the battery drains)"));
+            if (!on && _protect) { var _ = LeaveProtectionAsync("switched off"); }
+            if (!on && _pausedSecs >= 20) _hotUnprotectedShown = false; // already hot: the HOT warning fires on the next tick
+        }
+
+        /// <summary>Hot (20 s of paused charging on a good charger) while the Heat protection switch is off.</summary>
+        private bool HotUnprotected => !_protect && !HeatAutoToggle.IsOn && _pausedSecs >= 20;
+        private bool _hotUnprotectedShown;
 
         private void UnplugBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
@@ -162,7 +193,18 @@ namespace W10MWebCam
             if (hot && HeatAutoToggle.IsOn && !_protect) { var _ = EnterProtectionAsync(); }
             else if (_protect && _chargingSecs >= 30 && (DateTime.Now - _protectSince).TotalMinutes >= 3) { var _ = LeaveProtectionAsync("charging has resumed"); }
             else if (_protectRestartOwed && !_protectBusy && !_busy) { var _ = RestartForProtectionAsync(); }
-            _heat = _protect ? "Heat protection on" : hot ? "Hot (charging paused)" : paused ? "Charging paused" : "Healthy";
+            _heat = _protect ? "Heat protection on" : HotUnprotected ? "HOT - heat protection off" : hot ? "Hot (charging paused)" : paused ? "Charging paused" : "Healthy";
+            if (HotUnprotected != _hotUnprotectedShown)
+            {
+                _hotUnprotectedShown = HotUnprotected;
+                if (HotUnprotected) { Log("HOT with heat protection OFF: nothing is done about it (switch it on under Power, or use a 2 A charger)"); PlayChime(false); var buzz = BuzzAsync(2); }
+                else Log("Charging again: the phone has cooled (heat protection still off)");
+            }
+            if (PowerAlert != null)
+            {
+                PowerAlert.Text = _protect ? "Heat protection: power saving forced on" : "HOT and heat protection is off: nothing is done about it - the battery drains on a weak charger";
+                PowerAlert.Visibility = _protect || HotUnprotected ? Visibility.Visible : Visibility.Collapsed;
+            }
         }
 
         // ---- Heat protection (as in W10MSecurityCam / W10MDashcam): when charging stalls on a good charger, lower the video,
@@ -248,8 +290,12 @@ namespace W10MWebCam
             ResolutionBox.IsEnabled = BitrateBox.IsEnabled = free;
             PowerSaveToggle.IsEnabled = KeepPreviewToggle.IsEnabled = free;
             SaveOisToggle.IsEnabled = free && _tuning.OisSupported;
+            if (OisToggle != null) OisToggle.IsEnabled = SaveOisToggle.IsEnabled;
             SaveFocusToggle.IsEnabled = free;
+            if (ScreensaverButton != null) ScreensaverButton.IsEnabled = free;
+            UpdatePickTexts();
             UpdateTorchUi();
+            UpdatePreviewText();
         }
 
         /// <summary>The red notice (heat, safe mode) and the amber one (charger) on the status card; the same text goes to the web page.</summary>
@@ -257,7 +303,8 @@ namespace W10MWebCam
         {
             var alerts = new List<string>();
             if (_protect) alerts.Add("Heat protection: charging paused because the phone is hot - usually the charger can't keep up (a PC USB port or a small adapter; use 2 A or more). Video is 1080p / 6 Mbps, the screen is black, stabilization is off and the flashlight is locked until it charges normally again.");
-            else if (_pausedSecs >= 20) alerts.Add("Charging has paused: the phone is probably hot - usually the charger can't keep up (a PC USB port or a small adapter; use 2 A or more)." + (HeatAutoToggle.IsOn ? "" : " 'Lower to 1080p' under Power is off, so this is a warning only."));
+            else if (HotUnprotected) alerts.Add("The phone is hot (charging has paused) and heat protection is OFF, so nothing is done about it: full video and the screen as set. Switch heat protection on under Power, lower the video yourself, or use a 2 A charger - on a weak charger the battery drains until the phone dies.");
+            else if (_pausedSecs >= 20) alerts.Add("Charging has paused: the phone is probably hot - usually the charger can't keep up (a PC USB port or a small adapter; use 2 A or more).");
             if (_safeMode) alerts.Add("Safe mode: the standard (MP4) engine is in use until the app is reopened.");
             string charger = ChargerNotice();
             string alert = string.Join(" ", alerts);

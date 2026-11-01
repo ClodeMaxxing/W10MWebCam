@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Windows.Networking.Connectivity;
 using Windows.UI.Xaml;
+using W10MWebCam.Streaming;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Media;
 
@@ -31,14 +32,95 @@ namespace W10MWebCam
         private bool _dotPulsing;
 
         /// <summary>Folding section headers: Tag is "PanelName|LABEL".</summary>
-        private void Fold_Click(object sender, RoutedEventArgs e)
+        /// <summary>A drawer's header band: Tag = "PanelName|ArrowName". Open = the body shows and the band keeps only its top corners round.</summary>
+        private void Fold_Tapped(object sender, Windows.UI.Xaml.Input.TappedRoutedEventArgs e)
         {
-            var b = (Button)sender;
-            var parts = ((string)b.Tag).Split('|');
-            if (!(FindName(parts[0]) is UIElement panel)) return;
-            bool open = panel.Visibility != Visibility.Visible;
-            panel.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
-            b.Content = parts[1] + (open ? "  ▾" : "  ▸");
+            var head = (Border)sender;
+            if (!(FindName(((string)head.Tag).Split('|')[0]) is UIElement panel)) return;
+            SetFold(head, panel.Visibility != Visibility.Visible);
+        }
+
+        private void SetFold(Border head, bool open)
+        {
+            var parts = ((string)head.Tag).Split('|');
+            if (FindName(parts[0]) is UIElement panel) panel.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
+            if (FindName(parts[1]) is TextBlock arrow) arrow.Text = open ? "▾" : "▸";
+            head.CornerRadius = open ? new CornerRadius(8, 8, 0, 0) : new CornerRadius(8);
+        }
+
+        /// <summary>A tap on a RowSwitch row flips its ToggleSwitch (the template has no knob, so the switch does not toggle by itself).</summary>
+        private void RowSwitch_Tapped(object sender, Windows.UI.Xaml.Input.TappedRoutedEventArgs e)
+        {
+            DependencyObject n = sender as DependencyObject;
+            while (n != null && !(n is ToggleSwitch)) n = Windows.UI.Xaml.Media.VisualTreeHelper.GetParent(n);
+            if (n is ToggleSwitch sw && sw.IsEnabled) { sw.IsOn = !sw.IsOn; e.Handled = true; }
+        }
+
+        /// <summary>The stream row's edge light: green while streaming (once a second, and on start / stop).</summary>
+        private void UpdateStreamButton(bool streaming)
+        {
+            if (StreamBar == null) return;
+            StreamBar.Background = streaming ? GreenFill : Brush(0x16, 0x30, 0x1E);
+        }
+
+        /// <summary>Colours the active half of an Auto / Manual segment.</summary>
+        private static void SetSeg(Border a, Border m, bool auto)
+        {
+            var on = Brush(0x1F, 0x3A, 0x26); var off = Brush(0x0A, 0x16, 0x0D);
+            var onText = Brush(0xCF, 0xFF, 0xD2); var offText = Brush(0x7F, 0xAE, 0x86);
+            a.Background = auto ? on : off; m.Background = auto ? off : on;
+            ((TextBlock)a.Child).Foreground = auto ? onText : offText;
+            ((TextBlock)m.Child).Foreground = auto ? offText : onText;
+        }
+
+        /// <summary>A tap on a segment flips the hidden switch it names (Tag), whose handler does the rest.</summary>
+        private void Seg_Tapped(object sender, Windows.UI.Xaml.Input.TappedRoutedEventArgs e)
+        {
+            if (FindName((string)((Border)sender).Tag) is ToggleSwitch sw && sw.IsEnabled) sw.IsOn = !sw.IsOn;
+        }
+
+        // ---- the pickers: a tile opens a themed list of the hidden ComboBox's items; a tap on a row selects it in the ComboBox.
+        private void Pick_Click(object sender, RoutedEventArgs e)
+        {
+            var button = (Button)sender;
+            if (!(FindName((string)button.Tag) is ComboBox box)) return;
+            var rows = new List<PickRowItem>();
+            foreach (var item in box.Items)
+            {
+                bool cur = ReferenceEquals(item, box.SelectedItem);
+                rows.Add(new PickRowItem
+                {
+                    Value = item, Text = item.ToString(),
+                    Light = cur ? GreenFill : Brush(0x07, 0x11, 0x09),
+                    Fore = cur ? Brush(0xCF, 0xFF, 0xD2) : Brush(0x9C, 0xC3, 0xA2),
+                    Back = cur ? Brush(0x16, 0x3A, 0x1E) : Brush(0x07, 0x11, 0x09)
+                });
+            }
+            var list = new ListView
+            {
+                ItemsSource = rows, IsItemClickEnabled = true, SelectionMode = ListViewSelectionMode.None,
+                ItemTemplate = (DataTemplate)Resources["PickRow"], ItemContainerStyle = (Style)Resources["PickItem"], Tag = box
+            };
+            var flyout = new Flyout { Content = list, Placement = Windows.UI.Xaml.Controls.Primitives.FlyoutPlacementMode.Bottom, FlyoutPresenterStyle = (Style)Resources["PickFlyout"] };
+            list.ItemClick += (s, a) =>
+            {
+                if (a.ClickedItem is PickRowItem r) box.SelectedItem = r.Value; // the ComboBox's handler applies it
+                flyout.Hide();
+            };
+            flyout.ShowAt(button);
+        }
+
+        /// <summary>The value shown on each picker tile (after every selection change and at start).</summary>
+        private void UpdatePickTexts()
+        {
+            if (ResolutionPickText == null) return;
+            ResolutionPickText.Text = ResolutionBox.SelectedItem?.ToString() ?? "-";
+            BitratePickText.Text = BitrateBox.SelectedItem?.ToString() ?? "-";
+            KeyframePickText.Text = KeyframeBox.SelectedItem?.ToString() ?? "-";
+            CameraPickText.Text = CameraBox.SelectedItem?.ToString() ?? "-";
+            UnplugPickText.Text = UnplugBox.SelectedItem?.ToString() ?? "-";
+            ResolutionPick.IsEnabled = ResolutionBox.IsEnabled; BitratePick.IsEnabled = BitrateBox.IsEnabled;
+            KeyframePick.IsEnabled = KeyframeBox.IsEnabled; CameraPick.IsEnabled = CameraBox.IsEnabled; UnplugPick.IsEnabled = UnplugBox.IsEnabled;
         }
 
         /// <summary>A status badge: 0 = good (green), 1 = caution (amber), 2 = bad (red).</summary>
@@ -76,6 +158,7 @@ namespace W10MWebCam
         private Tuple<string, int> HeatBadge()
         {
             if (_protect) return Tuple.Create("Protect", 2);
+            if (HotUnprotected) return Tuple.Create("HOT, no protection", 2);
             if (_pausedSecs >= 20) return Tuple.Create("Hot", 2);
             if (_pausedSecs > 0) return Tuple.Create("Paused", 1);
             return Tuple.Create("Healthy", 0);
@@ -89,16 +172,25 @@ namespace W10MWebCam
         private void UpdateStatusCard(bool streaming)
         {
             int viewers = _server.ClientCount;
-            ViewersText.Text = viewers + (viewers == 1 ? " viewer" : " viewers");
-            StateText.Text = _protect && streaming ? "HEAT PROTECTION" : streaming ? "STREAMING" : _busy ? "STARTING" : "STOPPED";
-            StateText.Foreground = _protect ? Brush(0xFF, 0x6B, 0x6B) : Brush(0x9C, 0xF0, 0xB0);
-            StatusDot.Fill = _protect ? RedFill : streaming ? GreenFill : Brush(0x55, 0x55, 0x55);
-            var f = streaming ? EffectiveVideo()?.Item1 : null;
-            ResPill.Visibility = f != null ? Visibility.Visible : Visibility.Collapsed;
-            if (f != null) ResText.Text = (f.Height >= 2160 ? "4K" : f.Height + "p") + Math.Round(f.Fps) + (_safeMode ? " SAFE" : "");
-            StatsText.Visibility = streaming ? Visibility.Visible : Visibility.Collapsed;
-            if (streaming) StatsText.Text = string.Format("{0,2:0} fps {1,4:0.0} Mbps", _camera.Fps, _camera.Mbps);
+            StateText.Text = _protect && streaming ? "HEAT PROTECTION" : streaming ? "STREAMING" : _busy || !StartButton.IsEnabled ? "STARTING..." : "START STREAM";
+            StateText.Foreground = _protect ? Brush(0xFF, 0x6B, 0x6B) : streaming ? Brush(0x9C, 0xF0, 0xB0) : Brush(0x8F, 0xB5, 0x96);
+            // the recording light: red while streaming (pulsing), dark red when stopped
+            StatusDot.Fill = streaming ? Brush(0xFF, 0x30, 0x30) : Brush(0x3A, 0x14, 0x14);
+            StatusDot.Stroke = streaming ? Brush(0xFF, 0x80, 0x80) : Brush(0x5A, 0x20, 0x20);
+            // the format pill on the stream row: lit while streaming, the chosen format dimmed while stopped
+            var f = streaming ? EffectiveVideo()?.Item1 : ResolutionBox.SelectedItem as FormatOption;
+            string res = f == null ? "-" : (f.Height >= 2160 ? "4K" : f.Height + "p") + Math.Round(f.Fps) + (streaming && _safeMode ? " SAFE" : "");
+            var dim = Brush(0x7F, 0xAE, 0x86); var bright = Brush(0xFF, 0xFF, 0xFF);
+            ResText.Text = res;
+            ResText.Foreground = streaming ? Brush(0xCF, 0xFF, 0xD2) : dim;
+            ResPill.BorderBrush = streaming ? GreenFill : Brush(0x2A, 0x4A, 0x32);
+            // the three stream tiles: live numbers while streaming
+            FpsTileText.Text = streaming ? _camera.Fps.ToString("0") : "-";
+            MbpsTileText.Text = streaming ? _camera.Mbps.ToString("0.0") : "-";
+            ViewersText.Text = streaming ? viewers.ToString() : "-";
+            FpsTileText.Foreground = MbpsTileText.Foreground = ViewersText.Foreground = streaming ? bright : dim;
             UpdateServicePills(streaming);
+            UpdateStreamButton(streaming);
             if (!_blackedOut || BlackoutOverlay.Visibility != Visibility.Visible) UpdateTiles(streaming);
             bool pulse = streaming && !(_blackedOut && BlackoutOverlay.Visibility == Visibility.Visible); // only while someone can see it
             if (pulse != _dotPulsing)

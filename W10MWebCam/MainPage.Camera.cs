@@ -49,6 +49,7 @@ namespace W10MWebCam
             SaveOisToggle.IsOn = _tuning.SaveOis;
             SaveOisToggle.IsEnabled = _tuning.OisSupported;
             SaveFocusToggle.IsOn = _tuning.SaveFocus;
+            if (OisToggle != null) { OisToggle.IsOn = !_tuning.SaveOis; OisToggle.IsEnabled = SaveOisToggle.IsEnabled; } // Image stabilization on = SaveOis off
             FocusOnceButton.IsEnabled = _tuning.FocusSupported;
             UpdateCameraUi();
         }
@@ -170,15 +171,26 @@ namespace W10MWebCam
             finally { _loading = was; }
         }
 
+        /// <summary>The value line of each camera tile: the value (dim while automatic) and a small note beside it.</summary>
         private void UpdateTuningLabels()
         {
-            FocusLabel.Text = !_tuning.FocusSupported ? "Focus: not adjustable"
-                : _tuning.FocusAuto ? "Focus: automatic" + (_tuning.FocusHeld ? " (held)" : "") : "Focus: " + Math.Round(_tuning.FocusPercent) + " (0 near - 100 far)";
-            ExposureLabel.Text = !_tuning.ExposureSupported ? "Exposure: not adjustable"
-                : _tuning.ExposureAuto ? "Exposure: automatic"
-                : string.Format("Exposure: {0:0.##} ms (1/{1:0} s)", _tuning.ExposureMs, 1000.0 / Math.Max(0.001, _tuning.ExposureMs));
-            WbLabel.Text = !_tuning.WhiteBalanceSupported ? "White balance: not adjustable"
-                : _tuning.WbAuto ? "White balance: automatic" : "White balance: " + _tuning.WhiteBalanceKelvin + " K";
+            if (FocusNote == null) return;
+            var bright = Brush(0xFF, 0xFF, 0xFF); var dim = Brush(0x7F, 0xAE, 0x86);
+            string iso = System.Text.RegularExpressions.Regex.Match(_tuning.State ?? "", @"ISO (\d+)").Groups[1].Value;
+            string expNow = string.Format("{0:0.##} ms (1/{1:0} s)", _tuning.ExposureMs, 1000.0 / Math.Max(0.001, _tuning.ExposureMs));
+            FocusLabel.Text = !_tuning.FocusSupported ? "n/a" : _tuning.FocusAuto ? "auto" : Math.Round(_tuning.FocusPercent).ToString();
+            FocusNote.Text = !_tuning.FocusSupported ? "not adjustable" : _tuning.FocusHeld ? "held, lens parked" : _tuning.FocusAuto ? "continuous" : _focusLockedByOnce ? "locked · 0 near, 100 far" : "0 near, 100 far";
+            ExposureLabel.Text = !_tuning.ExposureSupported ? "n/a" : _tuning.ExposureAuto ? "auto" : string.Format("{0:0.##} ms", _tuning.ExposureMs);
+            ExposureNote.Text = !_tuning.ExposureSupported ? "not adjustable" : (_tuning.ExposureAuto ? expNow : string.Format("1/{0:0} s", 1000.0 / Math.Max(0.001, _tuning.ExposureMs))) + (iso.Length > 0 ? " · ISO " + iso : "") + (_tuning.ExposureAuto ? " now" : "");
+            WbLabel.Text = !_tuning.WhiteBalanceSupported ? "n/a" : _tuning.WbAuto ? "auto" : _tuning.WhiteBalanceKelvin + " K";
+            WbNote.Text = !_tuning.WhiteBalanceSupported ? "not adjustable" : _tuning.WbAuto ? _tuning.WhiteBalanceKelvin + " K now" : "";
+            FocusLabel.Foreground = _tuning.FocusAuto ? dim : bright;
+            ExposureLabel.Foreground = _tuning.ExposureAuto ? dim : bright;
+            WbLabel.Foreground = _tuning.WbAuto ? dim : bright;
+            SetSeg(FocusSegA, FocusSegM, _tuning.FocusAuto);
+            SetSeg(ExposureSegA, ExposureSegM, _tuning.ExposureAuto);
+            SetSeg(WbSegA, WbSegM, _tuning.WbAuto);
+            UpdateFocusOnceRow();
         }
 
         private async void CameraAutoToggle_Toggled(object sender, RoutedEventArgs e)
@@ -203,6 +215,7 @@ namespace W10MWebCam
             if (sender == FocusAutoToggle) { _tuning.FocusAuto = on; _tuning.ReleaseFocusHold(); }
             else if (sender == ExposureAutoToggle) _tuning.ExposureAuto = on;
             else if (sender == WbAutoToggle) _tuning.WbAuto = on;
+            if (sender == FocusAutoToggle) { _focusLockedByOnce = false; if (on) _tuning.ReleaseFocusHold(); }
             UpdateCameraUi(); // the slider enables at once; all three on Auto switches the main switch on
             await ApplyCameraNowAsync();
         }
@@ -212,6 +225,7 @@ namespace W10MWebCam
             if (_loading || FocusLabel == null) return;
             _sliderTouchedAt = DateTime.Now;
             TouchPhoneAdjust();
+            _focusLockedByOnce = false; // a focus set by hand is not the Focus once lock
             if (sender == FocusSlider) _tuning.FocusPercent = FocusSlider.Value;
             else if (sender == ExposureSlider) _tuning.ExposureMs = _tuning.SnapExposureMs(SliderToExposure(ExposureSlider.Value));
             else if (sender == WbSlider) _tuning.WhiteBalanceKelvin = (uint)(Math.Round(WbSlider.Value / 100.0) * 100);
@@ -224,7 +238,38 @@ namespace W10MWebCam
             _tuningTimer.Stop(); _tuningTimer.Start(); // apply once the slider stops moving
         }
 
-        private async void FocusOnceButton_Click(object sender, RoutedEventArgs e) { TouchPhoneAdjust(); await FocusOnceAsync(); }
+        /// <summary>The Focus once row: off = autofocus once and lock there; on (locked, or held by the power-saving hold) = release to continuous autofocus.</summary>
+        private async void FocusOnceButton_Click(object sender, RoutedEventArgs e)
+        {
+            TouchPhoneAdjust();
+            if (FocusOnceOn) { await ReleaseFocusAsync(); return; }
+            await FocusOnceAsync();
+        }
+
+        private bool _focusLockedByOnce; // the lock came from Focus once (a manual focus set by hand is not "locked")
+        private bool FocusOnceOn => _tuning.FocusSupported && (_tuning.FocusHeld || (!_tuning.FocusAuto && _focusLockedByOnce));
+
+        private void UpdateFocusOnceRow()
+        {
+            if (FocusOnceBar == null) return;
+            bool on = FocusOnceOn;
+            FocusOnceButton.IsEnabled = _tuning.FocusSupported && _camera != null;
+            FocusOnceBar.Background = on ? GreenFill : Brush(0x16, 0x30, 0x1E);
+            FocusOnceStateText.Foreground = on ? GreenFill : Brush(0x7F, 0xAE, 0x86);
+            FocusOnceStateText.Text = !_tuning.FocusSupported ? "NOT ADJUSTABLE" : _tuning.FocusHeld ? "ON · HELD" : on ? "ON · LOCKED" : "OFF";
+        }
+
+        /// <summary>Back to continuous autofocus (after a lock or a hold).</summary>
+        private async Task ReleaseFocusAsync()
+        {
+            _focusLockedByOnce = false;
+            _tuning.ReleaseFocusHold();
+            _tuning.FocusAuto = true;
+            SaveCameraSettings();
+            UpdateCameraUi();
+            Log("Focus released: continuous autofocus again");
+            await ApplyCameraNowAsync();
+        }
 
         private async Task<string> FocusOnceAsync()
         {
@@ -233,12 +278,22 @@ namespace W10MWebCam
             FocusOnceButton.IsEnabled = false;
             try
             {
+                _tuning.ReleaseFocusHold();
                 bool ok = await _tuning.FocusOnceAsync(cap);
+                _focusLockedByOnce = ok;
                 await ApplyCameraNowAsync();
+                UpdateCameraUi();
                 return ok ? "Focus locked" : "Focus once failed (see the log)";
             }
             catch (Exception ex) { Log("Focus once: " + ex.Message); return "Focus once failed (see the log)"; }
-            finally { FocusOnceButton.IsEnabled = _tuning.FocusSupported; }
+            finally { FocusOnceButton.IsEnabled = _tuning.FocusSupported; UpdateFocusOnceRow(); }
+        }
+
+        /// <summary>Image stabilization (Camera): off saves processing and heat on a fixed mount (one stream restart).</summary>
+        private void OisToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (_loading || !_uiReady) return;
+            SaveOisToggle.IsOn = !OisToggle.IsOn; // its handler saves, applies and restarts
         }
 
         private async void SaveOisToggle_Toggled(object sender, RoutedEventArgs e)
@@ -320,7 +375,24 @@ namespace W10MWebCam
                 TorchToggle.IsEnabled = _torchWanted || (_tuning.TorchSupported && _camera != null && _camera.IsStreaming && !_protect);
             }
             finally { _loading = was; }
+            UpdateTorchButton();
         }
+
+        /// <summary>The Flashlight light-bar button: lit with the seconds left while on; the reason it can't be used while off.</summary>
+        private void UpdateTorchButton()
+        {
+            if (TorchBar == null) return;
+            bool streaming = _camera != null && _camera.IsStreaming;
+            TorchButton.IsEnabled = TorchToggle.IsEnabled;
+            TorchBar.Background = _torchWanted ? GreenFill : Brush(0x16, 0x30, 0x1E);
+            TorchStateText.Foreground = _torchWanted ? GreenFill : Brush(0x7F, 0xAE, 0x86);
+            TorchStateText.Text = _torchWanted ? "ON · " + TorchSecondsLeft + " s"
+                : _protect ? "OFF · HEAT PROTECTION"
+                : _camera != null && !_tuning.TorchSupported && streaming ? "OFF · NOT ON THIS CAMERA"
+                : !streaming ? "OFF · STREAM FIRST" : "OFF";
+        }
+
+        private void TorchButton_Click(object sender, RoutedEventArgs e) => SetTorch(!_torchWanted);
 
         /// <summary>Stabilization (only while no recording runs), with the crash guard: if the app dies here, the next launch switches it off.</summary>
         private void ApplyCameraPower()
@@ -355,6 +427,7 @@ namespace W10MWebCam
                 Log("Flashlight switched off automatically");
             }
             if (TorchToggle.IsEnabled != (_torchWanted || (_tuning.TorchSupported && _camera != null && _camera.IsStreaming && !_protect))) UpdateTorchUi();
+            else if (_torchWanted) UpdateTorchButton(); // the seconds left
             if (_tuning.SaveFocus && _tuning.FocusAuto && !_tuning.FocusHeld && !_holdBusy && !_busy &&
                 _camera != null && _camera.IsStreaming && DateTime.Now >= _nextHoldAt)
             {

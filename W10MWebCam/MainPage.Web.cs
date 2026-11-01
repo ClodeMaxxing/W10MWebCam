@@ -137,6 +137,24 @@ namespace W10MWebCam
             o["autoStart"] = Bool(AutoStartToggle.IsOn);
             o["preview"] = Bool(PreviewToggle.IsOn);
             o["heatAuto"] = Bool(HeatAutoToggle.IsOn);
+            o["heatProtect"] = Bool(HeatAutoToggle.IsOn);
+            o["focusHeld"] = Bool(_tuning.FocusHeld);
+            o["focusLocked"] = Bool(!_tuning.FocusAuto && _focusLockedByOnce);
+            o["saveOis"] = Bool(_tuning.SaveOis);
+            o["oisSupported"] = Bool(_tuning.OisSupported);
+            o["wifiVideo"] = Bool(WifiVideoToggle.IsOn);
+            o["webOn"] = Bool(WebToggle.IsOn);
+            o["logOn"] = Bool(LogToggle.IsOn);
+            o["statsOn"] = Bool(StatsToggle.IsOn);
+            o["wifiIp"] = Str(_wifiAddress);
+            o["usbPort"] = Num(UsbPort);
+            o["wifiPort"] = Num(WifiPort);
+            o["viewersUsb"] = Num(_server.ViewerCount(true));
+            o["viewersWifi"] = Num(_server.ViewerCount(false));
+            o["usbSeen"] = Bool(_server.ViewerCount(true) > 0 || (DateTime.Now - _http.LastUsbRequest).TotalSeconds < 30);
+            o["usbCable"] = Bool(_battery != null && _battery.Status != Windows.System.Power.BatteryStatus.Discharging);
+            o["torchSupported"] = Bool(_tuning.TorchSupported);
+            o["focusPercent"] = Num(_tuning.FocusPercent);
             o["focusSupported"] = Bool(_tuning.FocusSupported);
             o["exposureSupported"] = Bool(_tuning.ExposureSupported);
             o["wbSupported"] = Bool(_tuning.WhiteBalanceSupported);
@@ -222,7 +240,7 @@ namespace W10MWebCam
             if (f.TryGetValue("keeppreview", out v)) { KeepPreviewToggle.IsOn = On(v); done.Add("preview behind the black screen " + (On(v) ? "on" : "off")); }
             if (f.TryGetValue("autostart", out v)) { AutoStartToggle.IsOn = On(v); done.Add("auto-start " + (On(v) ? "on" : "off")); }
             if (f.TryGetValue("preview", out v)) { PreviewToggle.IsOn = On(v); done.Add("preview " + (On(v) ? "on" : "off")); }
-            if (f.TryGetValue("heatauto", out v)) { HeatAutoToggle.IsOn = On(v); done.Add("lower to 1080p when hot " + (On(v) ? "on" : "off")); }
+            if (f.TryGetValue("heatauto", out v) || f.TryGetValue("heatprotect", out v)) { SetHeatProtect(On(v)); done.Add("heat protection " + (On(v) ? "on" : "off")); }
             if (f.TryGetValue("keepstreaming", out v) && _unplugAt != DateTime.MaxValue) done.Add(KeepStreaming());
 
             // Camera: focus / exposure / white balance apply immediately, even while streaming.

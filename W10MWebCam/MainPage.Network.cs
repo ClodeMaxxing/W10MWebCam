@@ -43,28 +43,46 @@ namespace W10MWebCam
         private static string ViewerCountText(int n) => n > 0 ? " · " + n + (n == 1 ? " viewer" : " viewers") : "";
 
         /// <summary>Once a second (UpdateStatusCard): what streams where. Green while streaming (and the switch is on), grey otherwise.</summary>
+        /// <summary>
+        /// Once a second (UpdateStatusCard): the four ways in. Green = reachable now, grey = not, with the reason on the right.
+        /// USB is the honest case: the phone cannot see the cable as a network link (IP over USB arrives as loopback), so a
+        /// USB row is green once a PC has talked to it (a viewer, or a web request in the last 30 s), amber "cable?" while
+        /// the phone is on external power but nothing has connected, and grey "no USB" on battery (no cable at all).
+        /// </summary>
         private void UpdateServicePills(bool streaming)
         {
-            var grey = Brush(0x55, 0x55, 0x55);
-            var lit = Brush(0x9C, 0xF0, 0xB0);
-            var dim = Brush(0x7F, 0x9A, 0x86);
-            bool wifiOn = WifiVideoToggle.IsOn, wifi = _wifiAddress.Length > 0;
-            SvcUsbDot.Fill = streaming ? GreenFill : grey;
-            SvcUsbText.Foreground = streaming ? lit : dim;
-            SvcUsbText.Text = "USB tcp 127.0.0.1:" + UsbPort + ViewerCountText(_server.ViewerCount(true));
+            var grey = Brush(0x55, 0x55, 0x55); var amber = AmberFill;
+            var litText = Brush(0x9C, 0xF0, 0xB0); var dimText = Brush(0x7F, 0x9A, 0x86);
+            bool wifiOn = WifiVideoToggle.IsOn, wifi = _wifiAddress.Length > 0, web = WebToggle.IsOn;
+            int usbViewers = _server.ViewerCount(true), wifiViewers = _server.ViewerCount(false);
+            bool usbSeen = usbViewers > 0 || (DateTime.Now - _http.LastUsbRequest).TotalSeconds < 30;
+            bool cable = _battery != null && _battery.Status != Windows.System.Power.BatteryStatus.Discharging;
+            string usbNote = usbSeen ? "" : cable ? "cable?" : "no USB";
+            var usbDot = usbSeen ? GreenFill : cable ? amber : grey;
+            string vt(int n) => n > 0 ? n + (n == 1 ? " viewer" : " viewers") : "";
+
             SvcWifiDot.Fill = streaming && wifiOn && wifi ? GreenFill : grey;
-            SvcWifiText.Foreground = wifiOn && wifi ? (streaming ? lit : dim) : dim;
-            SvcWifiText.Text = (wifi ? "Wi-Fi tcp " + _wifiAddress + ":" + WifiPort : "Wi-Fi (not connected)") + (wifiOn ? ViewerCountText(_server.ViewerCount(false)) : " OFF");
-            SvcWebDot.Fill = WebToggle.IsOn ? GreenFill : grey;
-            SvcWebText.Foreground = WebToggle.IsOn ? lit : dim;
-            SvcWebText.Text = "Web page " + (WebToggle.IsOn ? "ON" : "OFF");
+            SvcWifiText.Foreground = streaming && wifiOn && wifi ? litText : dimText;
+            SvcWifiText.Text = wifi ? "tcp://" + _wifiAddress + ":" + WifiPort : "";
+            SvcWifiNote.Text = !wifi ? "no Wi-Fi" : !wifiOn ? "off" : !streaming ? "stopped" : vt(wifiViewers);
+
+            SvcUsbDot.Fill = streaming ? usbDot : grey;
+            SvcUsbText.Foreground = streaming && usbSeen ? litText : dimText;
+            SvcUsbText.Text = "tcp://127.0.0.1:" + UsbPort;
+            SvcUsbNote.Text = !streaming ? "stopped" : usbViewers > 0 ? vt(usbViewers) : usbNote;
+
+            SvcWebDot.Fill = web && wifi ? GreenFill : grey;
+            SvcWebText.Foreground = web && wifi ? litText : dimText;
+            SvcWebText.Text = wifi ? "http://" + _wifiAddress + ":" + LogPort + "/settings" : "";
+            SvcWebNote.Text = !web ? "off" : wifi ? "" : "no Wi-Fi";
+
+            SvcWebUsbDot.Fill = web ? usbDot : grey;
+            SvcWebUsbText.Foreground = web && usbSeen ? litText : dimText;
+            SvcWebUsbText.Text = "http://127.0.0.1:" + UsbPort + "/settings";
+            SvcWebUsbNote.Text = !web ? "off" : usbNote;
         }
 
-        private void OpenNetworkSection()
-        {
-            NetworkPanel.Visibility = Visibility.Visible;
-            NetworkFold.Content = "NETWORK  ▾";
-        }
+        private void OpenNetworkSection() => SetFold(NetworkFold, true);
 
         private void SvcUsb_Tapped(object sender, Windows.UI.Xaml.Input.TappedRoutedEventArgs e) => OpenNetworkSection();
 

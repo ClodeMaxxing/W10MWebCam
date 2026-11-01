@@ -130,7 +130,7 @@ On the phone and on the settings page:
 | Preview on always | Power | The preview runs even behind the screensaver, so a tap shows the picture at once; the Preview bar reads *ON · ALWAYS*. Costs CPU and heat (about twice the app's CPU); heat protection forces it off | Off |
 | When unplugged, stop streaming after | Power | See *Power and heat* | Never |
 | Video over Wi-Fi, Web page, Log page, Stats page | Network | The services and their addresses | |
-| Start streaming when the app opens | Network | Auto-start | On |
+| Start streaming when the app opens | Video | Auto-start | On |
 
 Changing resolution, bitrate, keyframe or stabilization while streaming restarts the stream for a moment; OBS
 reconnects by itself.

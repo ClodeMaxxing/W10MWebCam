@@ -67,6 +67,9 @@ namespace W10MWebCam
             int? pct = Percent(_battery);
             o["battery"] = Num(pct);
             o["batteryStatus"] = Str(_battery?.Status.ToString() ?? "unknown");
+            // charging = current flows into the battery; onExternalPower = a charger is connected (Charging or Idle)
+            o["charging"] = Bool(_battery != null && _battery.Status == Windows.System.Power.BatteryStatus.Charging);
+            o["onExternalPower"] = Bool(_battery != null && _battery.Status != Windows.System.Power.BatteryStatus.Discharging);
             o["charger"] = Str(_power.Supply);
             o["netWatts"] = Num(_power.NetWatts);
             o["drawWatts"] = Num(_power.DrawWatts);

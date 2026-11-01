@@ -165,7 +165,25 @@ namespace W10MWebCam.Streaming
                     c.SendFinal(await Http.HandleAsync(request));
                 }
             }
-            catch { c.Close(); }
+            catch (Exception ex)
+            {
+                // Usually the viewer went away (its read fails); not logged when this side closed it on purpose.
+                if (!c.IsClosed) LogDrop((c.IsHttp ? "Web request from " : "Viewer ") + c.Who + " dropped: " + ex.Message.Trim());
+                c.Close();
+            }
+        }
+
+        private DateTime _lastDropLog = DateTime.MinValue;
+
+        /// <summary>At most one line per 10 s, kept apart from LogLimited so dropped viewers never hide a refused one.</summary>
+        private void LogDrop(string m)
+        {
+            lock (_limitLogLock)
+            {
+                if ((DateTime.UtcNow - _lastDropLog).TotalSeconds < 10) return;
+                _lastDropLog = DateTime.UtcNow;
+            }
+            Log(m);
         }
 
         /// <summary>Called for single NAL units: the decoder setup at the start, and every NAL unit of the MP4 engine.</summary>

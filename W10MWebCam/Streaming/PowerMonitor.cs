@@ -116,33 +116,5 @@ namespace W10MWebCam.Streaming
             s += "app " + (ProcCpuPct.HasValue ? Math.Round(ProcCpuPct.Value).ToString() : "?") + " %";
             return s;
         }
-
-        /// <summary>Everything the battery report and the processor counters return on this phone (for probe=power).</summary>
-        public static string Dump()
-        {
-            var sb = new System.Text.StringBuilder();
-            try
-            {
-                var r = Battery.AggregateBattery.GetReport();
-                sb.Append("Battery report: status ").Append(r.Status).Append(", remaining ").Append(r.RemainingCapacityInMilliwattHours)
-                  .Append(" mWh, full ").Append(r.FullChargeCapacityInMilliwattHours).Append(" mWh, design ").Append(r.DesignCapacityInMilliwattHours)
-                  .Append(" mWh, charge rate ").Append(r.ChargeRateInMilliwatts.HasValue ? r.ChargeRateInMilliwatts + " mW" : "not reported");
-            }
-            catch (Exception ex) { sb.Append("Battery report failed: ").Append(ex.Message); }
-            try { sb.Append("; supply ").Append(Windows.System.Power.PowerManager.PowerSupplyStatus).Append(", Windows says ").Append(Windows.System.Power.PowerManager.RemainingChargePercent).Append(" %"); } catch { }
-            try
-            {
-                var p = Windows.System.Diagnostics.ProcessDiagnosticInfo.GetForCurrentProcess().CpuUsage.GetReport();
-                sb.Append("; app CPU time user ").Append(p.UserTime.TotalSeconds.ToString("0.0")).Append(" s, kernel ").Append(p.KernelTime.TotalSeconds.ToString("0.0")).Append(" s, cores ").Append(Environment.ProcessorCount);
-            }
-            catch (Exception ex) { sb.Append("; app CPU unavailable (").Append(ex.Message.Trim()).Append(")"); }
-            try
-            {
-                var s = Windows.System.Diagnostics.SystemDiagnosticInfo.GetForCurrentSystem().CpuUsage.GetReport();
-                sb.Append("; system CPU time user ").Append(s.UserTime.TotalSeconds.ToString("0")).Append(" s, kernel ").Append(s.KernelTime.TotalSeconds.ToString("0")).Append(" s, idle ").Append(s.IdleTime.TotalSeconds.ToString("0")).Append(" s");
-            }
-            catch (Exception ex) { sb.Append("; system CPU unavailable (").Append(ex.Message.Trim()).Append(")"); }
-            return sb.ToString();
-        }
     }
 }

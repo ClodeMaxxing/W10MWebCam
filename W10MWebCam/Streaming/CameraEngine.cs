@@ -247,13 +247,6 @@ namespace W10MWebCam.Streaming
             catch { return false; }
         }
 
-        /// <summary>Forget remembered encoder setups (used if a stream ever fails to decode).</summary>
-        public static void ClearEncoderCache()
-        {
-            var values = ApplicationData.Current.LocalSettings.Values;
-            foreach (var k in values.Keys.Where(k => k.StartsWith("Enc|")).ToList()) values.Remove(k);
-        }
-
         private async Task<Tuple<H264Config, double>> RecordProbeAsync(MediaEncodingProfile profile)
         {
             var file = await ApplicationData.Current.TemporaryFolder.CreateFileAsync("probe.mp4", CreationCollisionOption.ReplaceExisting);
@@ -387,7 +380,6 @@ namespace W10MWebCam.Streaming
             }
 
             _frameStep = 2;
-            LastSampleTime = sampleTime;
             foreach (var nal in AnnexB.Split(data))
                 if (nal.Length > 0) OnNal(nal, nal[0] & 0x1F);
         }
@@ -399,9 +391,6 @@ namespace W10MWebCam.Streaming
 
         /// <summary>Average capture-to-encoded latency over the last 5 s window (ms), or -1.</summary>
         public long LastLatencyMs { get; private set; } = -1;
-
-        /// <summary>Encoder timestamp of the latest sample (100 ns units); used later for RTSP.</summary>
-        public long LastSampleTime { get; private set; }
 
         public async Task StopStreamingAsync()
         {

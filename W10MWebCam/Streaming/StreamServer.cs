@@ -44,8 +44,6 @@ namespace W10MWebCam.Streaming
             if (drop.Count > 0) Log("Video over Wi-Fi switched off: " + drop.Count + " Wi-Fi viewer(s) disconnected");
         }
 
-        /// <summary>Kept for compatibility; lag is now judged by time (see MaxBacklogSeconds).</summary>
-        public long MaxQueueBytes = 4000000;
         /// <summary>If the oldest unsent video for a viewer is older than this, skip to the next keyframe.</summary>
         public double MaxBacklogSeconds = 1.5;
 

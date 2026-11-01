@@ -53,6 +53,8 @@ namespace W10MWebCam
         private int _nativeStalls;
         private DateTime _lastStall = DateTime.MinValue;
         private bool _safeMode;
+        private int _restarts;                 // stream restarts the app made by itself (for /status)
+        private string _lastRestartReason = "";
 
         private sealed class KeyframeOption
         {
@@ -250,6 +252,7 @@ namespace W10MWebCam
                     _settings.Values["StartInProgress"] = false;
                     _camera.UseNativeSink = false;
                     _safeMode = true;
+                    _lastRestartReason = "safe mode after a crash while starting";
                     Log("SAFE MODE: the app closed unexpectedly while starting the stream last time.");
                     Log("Auto-start skipped; the standard (MP4) engine will be used until the app is reopened.");
                 }
@@ -553,6 +556,8 @@ namespace W10MWebCam
             _lastStall = DateTime.Now;
             _nativeStalls++;
             Log("Low-latency engine stalled (no frames for 4 s) - restart #" + _nativeStalls);
+            _restarts++;
+            _lastRestartReason = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " encoder stalled";
             if (_nativeStalls >= 2)
             {
                 Log("Switching to the standard (MP4) engine until the app is reopened");

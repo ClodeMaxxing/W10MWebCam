@@ -57,6 +57,8 @@ namespace W10MWebCam
             o["streaming"] = Bool(streaming);
             o["engine"] = Str(cam?.PathName ?? "");
             o["safeMode"] = Bool(_safeMode);
+            o["restarts"] = Num(_restarts);
+            o["lastRestartReason"] = Str(_lastRestartReason);
             var video = EffectiveVideo();
             o["format"] = Str(video?.Item1?.ToString() ?? "");
             o["fps"] = Num(cam?.Fps ?? 0);

@@ -229,6 +229,7 @@ namespace W10MWebCam
             if (!_safeMode || _camera == null) return "Not in safe mode";
             _safeMode = false;
             _nativeStalls = 0;
+            _lastRestartReason = "";
             _camera.UseNativeSink = true;
             Log("Back to normal mode: the low-latency engine");
             try { if (_camera.IsStreaming) await RestartStreamAsync(); }

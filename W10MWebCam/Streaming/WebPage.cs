@@ -90,11 +90,11 @@ input.tx{background:#0d140f;color:#d6e8d9;border:1px solid #1f3a26;border-radius
 <div class='btnrow' style='margin-top:6px'><button id='stream'>Start stream</button></div>
 <div class='sub'>Changing these restarts the stream for a moment; OBS reconnects by itself.</div>
 <div class='row'><label><input type='checkbox' id='autostart'> Start streaming when the app opens</label></div>
-<div class='row'><label><input type='checkbox' id='preview'> Preview on the phone</label><i class='tip' data-tip='Shown when the screen is not blacked out. Changes apply when the stream is stopped or restarted: switching the preview during a 4K stream can stall it.'>i</i></div>
 </div>
 
 <h2>Camera</h2>
 <div class='sub' id='camnow'></div>
+<div class='row'><label><input type='checkbox' id='preview'> Preview on the phone</label><i class='tip' data-tip='Off by default. On: the picture on the phone while stopped, and while streaming unless the screen is blacked out. Adjusting the camera on the phone shows the picture for 60 s anyway. While streaming a change restarts the stream once.'>i</i></div>
 <div class='row'><label><input type='checkbox' id='camauto'> Automatic focus, exposure and white balance</label></div>
 <div class='row'><div class='head'><span id='fl'>Focus</span><label><input type='checkbox' id='fa'> Auto</label></div>
 <input type='range' id='fs' min='0' max='100' step='1'>
@@ -109,7 +109,8 @@ input.tx{background:#0d140f;color:#d6e8d9;border:1px solid #1f3a26;border-radius
 <div class='row'><label><input type='checkbox' id='sf'> Hold focus once it has settled</label><i class='tip' data-tip='Parks the lens after autofocus settles, so it stops hunting. Not for a subject that moves toward or away from the camera.'>i</i></div>
 
 <h2>Power</h2>
-<div class='row'><label><input type='checkbox' id='powersave'> Black screen while streaming</label><i class='tip' data-tip='Black OLED screen at minimum brightness: saves battery and lets the phone charge while it streams 4K.'>i</i></div>
+<div class='row'><label><input type='checkbox' id='powersave'> Black screen while streaming</label><i class='tip' data-tip='Black OLED screen at minimum brightness and the preview stopped: saves battery and lets the phone charge while it streams 4K. Tap the black screen to see the status for 15 s.'>i</i></div>
+<div class='row'><label><input type='checkbox' id='keeppreview'> Keep the preview running behind the black screen</label><i class='tip' data-tip='Off by default: the preview costs CPU and heat (about twice the app CPU). On: a tap on the black screen shows the picture at once, with no stream restart. Heat protection switches it off until charging resumes.'>i</i></div>
 <div class='row'><label><input type='checkbox' id='heatauto'> Lower to 1080p if the phone overheats</label><i class='tip' data-tip='When charging pauses on a good charger for 20 s the battery is hot. On (the default): the stream drops to 1080p / 6 Mbps, the screen goes black, stabilization is switched off, focus is held and the flashlight is locked until charging has resumed (at least 3 minutes); your own settings stay as they are. Off: only a warning.'>i</i></div>
 <div class='row'><label>When unplugged, stop streaming after <select id='unplug'></select></label><i class='tip' data-tip='A countdown shows on the phone when it goes on battery while streaming; when it ends the stream stops. It starts again when the power returns.'>i</i></div>
 
@@ -242,9 +243,9 @@ function render(){
  $('torch').checked=st.torchOn;$('torch').disabled=!w||!st.torchSupported||(!st.streaming&&!st.torchOn)||st.protect;
  $('torchnote').textContent=!st.torchSupported?'This camera has no flashlight control.':st.protect?'Locked by heat protection.':st.torchOn?'On - switches off in '+st.torchLeftSec+' s.':!st.streaming?'Start the stream to use the flashlight.':'';
  $('ois').checked=st.saveOis;$('ois').disabled=!w||!st.oisSupported||st.protect;
- $('powersave').checked=st.powerSave;$('autostart').checked=st.autoStart;$('preview').checked=st.preview;$('heatauto').checked=st.heatAuto;
- ['powersave','autostart','preview','heatauto'].forEach(function(i){$(i).disabled=!w});
- if(st.protect){$('powersave').disabled=$('sf').disabled=true} // forced on by heat protection
+ $('powersave').checked=st.powerSave;$('keeppreview').checked=st.keepPreview;$('autostart').checked=st.autoStart;$('preview').checked=st.preview;$('heatauto').checked=st.heatAuto;
+ ['powersave','keeppreview','autostart','preview','heatauto'].forEach(function(i){$(i).disabled=!w});
+ if(st.protect){$('powersave').disabled=$('keeppreview').disabled=$('sf').disabled=true} // forced by heat protection
  $('lens').value=st.front?'front':'rear';$('lens').disabled=!w;
  // each switch shows its real state on the phone as an ON / OFF pill, also when this page can't change it
  var pill=function(id,on){var e=$('st-'+id);e.textContent=on?'ON':'OFF';e.className='st'+(on?'':' off')};
@@ -304,6 +305,7 @@ $('sf').onchange=function(){send('savefocus='+onoff(this.checked))};
 $('torch').onchange=function(){send('torch='+onoff(this.checked))};
 $('ois').onchange=function(){send('saveois='+onoff(this.checked),'Applying - the stream restarts for a moment...')};
 $('powersave').onchange=function(){send('powersave='+onoff(this.checked))};
+$('keeppreview').onchange=function(){send('keeppreview='+onoff(this.checked))};
 $('autostart').onchange=function(){send('autostart='+onoff(this.checked))};
 $('preview').onchange=function(){send('preview='+onoff(this.checked))};
 $('heatauto').onchange=function(){send('heatauto='+onoff(this.checked))};

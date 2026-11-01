@@ -170,7 +170,7 @@ namespace W10MWebCam
         // resumes. The forced values are never written to the saved settings (SaveCameraSettings and the blackout switch
         // skip them while _protect), so an app restart in between also comes back with the person's own choices.
         private bool _protectBusy, _protectRestartOwed;
-        private bool _pOis, _pFocus, _pBlackout;
+        private bool _pOis, _pFocus;
 
         private async System.Threading.Tasks.Task EnterProtectionAsync()
         {
@@ -178,7 +178,7 @@ namespace W10MWebCam
             _protectBusy = true;
             try
             {
-                _pOis = _tuning.SaveOis; _pFocus = _tuning.SaveFocus; _pBlackout = PowerSaveToggle.IsOn;
+                _pOis = _tuning.SaveOis; _pFocus = _tuning.SaveFocus;
                 _protect = true;
                 _protectSince = DateTime.Now;
                 EndPhoneAdjust();
@@ -190,7 +190,7 @@ namespace W10MWebCam
                 var buzz = BuzzAsync(2);
                 _tuning.SaveOis = true; _tuning.SaveFocus = true;
                 ShowForcedSwitches();
-                if (!PowerSaveToggle.IsOn) PowerSaveToggle.IsOn = true; // its handler applies the black screen (and skips saving while _protect)
+                ForceDisplayForProtection(); // black screen on, no preview behind it (MainPage.Display.cs)
                 UpdateProtectUi();
                 // One restart picks up the video format and the stabilization setting together (both only change while stopped).
                 await RestartForProtectionAsync();
@@ -211,7 +211,7 @@ namespace W10MWebCam
                 var buzz = BuzzAsync(1);
                 _tuning.SaveOis = _pOis; _tuning.SaveFocus = _pFocus;
                 ShowForcedSwitches();
-                if (PowerSaveToggle.IsOn != _pBlackout) PowerSaveToggle.IsOn = _pBlackout; // its handler saves and applies it
+                RestoreDisplayAfterProtection();
                 UpdateProtectUi();
                 await RestartForProtectionAsync();
             }
@@ -246,7 +246,7 @@ namespace W10MWebCam
         {
             bool free = !_protect;
             ResolutionBox.IsEnabled = BitrateBox.IsEnabled = free;
-            PowerSaveToggle.IsEnabled = free;
+            PowerSaveToggle.IsEnabled = KeepPreviewToggle.IsEnabled = free;
             SaveOisToggle.IsEnabled = free && _tuning.OisSupported;
             SaveFocusToggle.IsEnabled = free;
             UpdateTorchUi();
@@ -318,8 +318,7 @@ namespace W10MWebCam
             if (UnplugPanel.Visibility != Visibility.Visible)
             {
                 UnplugPanel.Visibility = Visibility.Visible;
-                BlackoutOverlay.Visibility = Visibility.Collapsed; // lift the black screen so the countdown is visible
-                if (_brightness != null && _brightness.IsSupported) _brightness.StopOverride();
+                var _ = ApplyDisplayAsync(); // lifts the black screen so the countdown is visible (PanelOnScreen)
             }
         }
 
@@ -328,7 +327,7 @@ namespace W10MWebCam
             _unplugAt = DateTime.MaxValue;
             if (UnplugPanel.Visibility != Visibility.Visible) return;
             UnplugPanel.Visibility = Visibility.Collapsed;
-            if (_blackedOut) { _wakeTimer.Stop(); _wakeTimer.Start(); } // back to black after the usual 15 s
+            var _ = ApplyDisplayAsync(); // back to black
         }
 
         private void KeepStreamingButton_Click(object sender, RoutedEventArgs e) => KeepStreaming();

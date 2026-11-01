@@ -36,7 +36,6 @@ namespace W10MWebCam
         private readonly PowerMonitor _power = new PowerMonitor();
         private readonly DisplayRequest _displayRequest = new DisplayRequest();
         private readonly DispatcherTimer _statsTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
-        private readonly DispatcherTimer _wakeTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(15) };
         private readonly ApplicationDataContainer _settings = ApplicationData.Current.LocalSettings;
         private readonly DateTime _launchedAt = DateTime.Now;
 
@@ -45,8 +44,6 @@ namespace W10MWebCam
         private bool _busy;
         private DateTime _busySince;
         private bool _keepAwake;
-        private BrightnessOverride _brightness;
-        private bool _blackedOut;
 
         // crash guard + stall watchdog
         private DateTime _startedAt = DateTime.MinValue;
@@ -107,7 +104,8 @@ namespace W10MWebCam
             _server.Http = _http;
             _logServer = new LogServer(_http) { Log = Log };
             _statsTimer.Tick += StatsTimer_Tick;
-            _wakeTimer.Tick += WakeTimer_Tick;
+            // Any touch on the page (handled or not) keeps a woken screen awake and a shown picture showing (MainPage.Display.cs).
+            AddHandler(PointerPressedEvent, new Windows.UI.Xaml.Input.PointerEventHandler((s, e) => TouchKeepsDisplay()), true);
             Window.Current.VisibilityChanged += (s, e) => { if (!e.Visible) Log("App hidden (screen locked or switched away)"); };
 
             BitrateBox.Items.Add(new BitrateOption { Bps = 0 });
@@ -222,8 +220,7 @@ namespace W10MWebCam
                 if (_settings.Values["Keyframe"] is int kf && kf >= 0 && kf < KeyframeBox.Items.Count)
                     KeyframeBox.SelectedIndex = kf;
                 AutoStartToggle.IsOn = GetBool("AutoStart", true);
-                PowerSaveToggle.IsOn = GetBool("PowerSave", true);
-                PreviewToggle.IsOn = GetBool("Preview", true);
+                LoadDisplaySettings();
                 LoadPowerSettings();
                 LoadCameraSettings();
                 LoadNetworkSettings();
@@ -236,8 +233,8 @@ namespace W10MWebCam
                 PreviewElement.FlowDirection = _camera.UsingFrontCamera ? FlowDirection.RightToLeft : FlowDirection.LeftToRight; // mirror the selfie view on the phone only
                 // Don't spin the preview up just to switch it off again: starting 4K recording while the
                 // preview is toggled right after camera power-up crashes the camera pipeline.
-                if (PreviewToggle.IsOn && !(autoStarting && PowerSaveToggle.IsOn)) await _camera.SetPreviewAsync(true);
-                UpdatePreviewNote();
+                if (PreviewWanted && !autoStarting) await _camera.SetPreviewAsync(true);
+                UpdatePreviewText();
 
                 ShowAddresses();
                 StartButton.IsEnabled = formats.Count > 0;
@@ -396,8 +393,8 @@ namespace W10MWebCam
                     _tuning.FrameLimitMs = 1000.0 / Math.Max(1, video.Item1.Fps);
                     await _camera.StartStreamingAsync(video.Item1, video.Item2);
                     StartButton.Content = "Stop video stream";
-                    await ApplyBlackoutAsync();
                     if (!_keepAwake) { _displayRequest.RequestActive(); _keepAwake = true; }
+                    await ApplyDisplayAsync();
                     var _ = AfterStreamStartAsync();
                 }
                 else
@@ -406,8 +403,7 @@ namespace W10MWebCam
                     await _camera.StopStreamingAsync();
                     ClearStartFlag();
                     StopUi();
-                    await _camera.SetPreviewAsync(IdlePreviewWanted);
-                    await ApplyBlackoutAsync();
+                    await ApplyDisplayAsync();
                 }
             }
             catch (Exception ex)
@@ -421,7 +417,7 @@ namespace W10MWebCam
             {
                 StartButton.IsEnabled = true;
                 _busy = false;
-                UpdatePreviewNote();
+                UpdatePreviewText();
             }
         }
 
@@ -437,92 +433,15 @@ namespace W10MWebCam
             if (_keepAwake) { _displayRequest.RequestRelease(); _keepAwake = false; }
         }
 
-        // ------------------------------------------------------------------ blackout (battery saver)
+        // ------------------------------------------------------------------ display (black screen, preview): MainPage.Display.cs
 
-        /// <summary>
-        /// While streaming: screen at minimum brightness and a full black overlay (tap to wake for 15 s). This only
-        /// touches the overlay and brightness; the preview is decided when the stream starts.
-        /// </summary>
-        private async Task ApplyBlackoutAsync()
-        {
-            bool want = _camera != null && _camera.IsStreaming && PowerSaveToggle.IsOn;
-            if (want == _blackedOut) return;
-            _blackedOut = want;
-            try
-            {
-                if (_brightness == null) _brightness = BrightnessOverride.GetForCurrentView();
-                if (want && !_phoneAdjusting) // while adjusting the camera on the phone the screen stays lit (MainPage.Adjust.cs)
-                {
-                    if (_brightness.IsSupported)
-                    {
-                        _brightness.SetBrightnessLevel(0.0, DisplayBrightnessOverrideOptions.None);
-                        _brightness.StartOverride();
-                    }
-                    BlackoutOverlay.Visibility = Visibility.Visible;
-                }
-                else
-                {
-                    _wakeTimer.Stop();
-                    BlackoutOverlay.Visibility = Visibility.Collapsed;
-                    if (_brightness.IsSupported) _brightness.StopOverride();
-                }
-            }
-            catch (Exception ex) { Log("Blackout: " + ex.Message); }
-            UpdatePreviewNote();
-            await Task.CompletedTask;
-        }
-
-        private void UpdatePreviewNote()
-        {
-            bool previewing = _camera != null && _camera.Previewing;
-            PreviewOffText.Text = _camera != null && _camera.IsStreaming
-                ? (previewing ? "" : _phoneAdjusting ? "Starting the camera picture..." : "Streaming - preview off" + (PowerSaveToggle.IsOn ? " (blackout mode)" : " (it starts with the next stream start)"))
-                : "Preview off";
-            PreviewOffText.Visibility = previewing ? Visibility.Collapsed : Visibility.Visible;
-        }
-
-        private void BlackoutOverlay_Tapped(object sender, Windows.UI.Xaml.Input.TappedRoutedEventArgs e)
-        {
-            BlackoutOverlay.Visibility = Visibility.Collapsed;
-            if (_brightness != null && _brightness.IsSupported) _brightness.StopOverride();
-            UpdatePreviewNote();
-            _wakeTimer.Stop();
-            _wakeTimer.Start();
-        }
-
-        private void WakeTimer_Tick(object sender, object e)
-        {
-            _wakeTimer.Stop();
-            if (!_blackedOut || _phoneAdjusting || UnplugPanel.Visibility == Visibility.Visible) return;
-            BlackoutOverlay.Visibility = Visibility.Visible;
-            if (_brightness != null && _brightness.IsSupported)
-            {
-                _brightness.SetBrightnessLevel(0.0, DisplayBrightnessOverrideOptions.None);
-                _brightness.StartOverride();
-            }
-        }
-
-        private async void PowerSaveToggle_Toggled(object sender, RoutedEventArgs e)
-        {
-            if (_loading) return;
-            if (!_protect) _settings.Values["PowerSave"] = PowerSaveToggle.IsOn; // forced on by heat protection: not saved
-            await ApplyBlackoutAsync();
-        }
+        /// <summary>A banner that must stay visible (the power-loss countdown): the black screen waits.</summary>
+        private bool PanelOnScreen => UnplugPanel.Visibility == Visibility.Visible;
 
         private void AutoStartToggle_Toggled(object sender, RoutedEventArgs e)
         {
             if (_loading) return;
             _settings.Values["AutoStart"] = AutoStartToggle.IsOn;
-        }
-
-        private async void PreviewToggle_Toggled(object sender, RoutedEventArgs e)
-        {
-            if (_loading) return;
-            _settings.Values["Preview"] = PreviewToggle.IsOn;
-            if (_camera == null) return;
-            if (_camera.IsStreaming) Log("Preview " + (PreviewToggle.IsOn ? "on" : "off") + " applies when the stream is stopped or restarted");
-            else await _camera.SetPreviewAsync(IdlePreviewWanted);
-            UpdatePreviewNote();
         }
 
         // ------------------------------------------------------------------ stats + watchdog (once a second)
@@ -531,6 +450,7 @@ namespace W10MWebCam
         {
             if (!_launchHealthy && (DateTime.Now - _launchedAt).TotalSeconds >= 20) MarkLaunchHealthy();
             PowerTick();
+            DisplayTick();
             SampleStats();
             CameraTick();
             UpdateStats();

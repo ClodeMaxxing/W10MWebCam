@@ -133,6 +133,7 @@ namespace W10MWebCam
             o["unplugChoices"] = List(UnplugBox.Items.Select(i => i.ToString()));
             o["unplugIndex"] = Num(UnplugBox.SelectedIndex);
             o["powerSave"] = Bool(PowerSaveToggle.IsOn);
+            o["keepPreview"] = Bool(KeepPreviewToggle.IsOn);
             o["autoStart"] = Bool(AutoStartToggle.IsOn);
             o["preview"] = Bool(PreviewToggle.IsOn);
             o["heatAuto"] = Bool(HeatAutoToggle.IsOn);
@@ -188,8 +189,8 @@ namespace W10MWebCam
             if (_protect)
             {
                 bool had = false;
-                foreach (var k in new[] { "format", "bitrate", "powersave", "saveois", "savefocus", "torch" }) had |= f.Remove(k);
-                if (had) done.Add("heat protection is on: video, blackout, stabilization, hold focus and the flashlight can't be changed until charging resumes");
+                foreach (var k in new[] { "format", "bitrate", "powersave", "keeppreview", "saveois", "savefocus", "torch" }) had |= f.Remove(k);
+                if (had) done.Add("heat protection is on: video, black screen, preview behind it, stabilization, hold focus and the flashlight can't be changed until charging resumes");
             }
 
             if (f.TryGetValue("stream", out v))
@@ -217,7 +218,8 @@ namespace W10MWebCam
             { KeyframeBox.SelectedIndex = ki; _settings.Values["Keyframe"] = ki; done.Add("keyframe every " + KeyframeBox.SelectedItem); }
             if (f.TryGetValue("unplug", out v) && int.TryParse(v, out int ui) && ui >= 0 && ui < UnplugBox.Items.Count)
             { UnplugBox.SelectedIndex = ui; done.Add("stop when unplugged: " + UnplugBox.SelectedItem); }
-            if (f.TryGetValue("powersave", out v)) { PowerSaveToggle.IsOn = On(v); done.Add("blackout " + (On(v) ? "on" : "off")); }
+            if (f.TryGetValue("powersave", out v)) { await SetBlackScreenAsync(On(v)); done.Add("black screen " + (On(v) ? "on" : "off")); }
+            if (f.TryGetValue("keeppreview", out v)) { KeepPreviewToggle.IsOn = On(v); done.Add("preview behind the black screen " + (On(v) ? "on" : "off")); }
             if (f.TryGetValue("autostart", out v)) { AutoStartToggle.IsOn = On(v); done.Add("auto-start " + (On(v) ? "on" : "off")); }
             if (f.TryGetValue("preview", out v)) { PreviewToggle.IsOn = On(v); done.Add("preview " + (On(v) ? "on" : "off")); }
             if (f.TryGetValue("heatauto", out v)) { HeatAutoToggle.IsOn = On(v); done.Add("lower to 1080p when hot " + (On(v) ? "on" : "off")); }

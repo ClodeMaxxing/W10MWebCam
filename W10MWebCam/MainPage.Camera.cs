@@ -143,7 +143,7 @@ namespace W10MWebCam
             {
                 CameraAutoToggle.IsOn = _tuning.Auto;
                 CameraText.Text = "Now: " + (_tuning.State.Length > 0 ? _tuning.State : _tuning.Mode);
-                ManualCameraPanel.Visibility = _tuning.Auto ? Visibility.Collapsed : Visibility.Visible;
+                // the manual panel is always on screen; its sliders are greyed while automatic
                 FocusAutoToggle.IsOn = _tuning.FocusAuto;
                 ExposureAutoToggle.IsOn = _tuning.ExposureAuto;
                 WbAutoToggle.IsOn = _tuning.WbAuto;
@@ -190,6 +190,7 @@ namespace W10MWebCam
             if (!CameraAutoToggle.IsOn) _tuning.SeedFromCamera(_camera?.Capture, _tuning.FocusAuto, _tuning.ExposureAuto, _tuning.WbAuto);
             _tuning.ReleaseFocusHold();
             _tuning.Auto = CameraAutoToggle.IsOn;
+            UpdateCameraUi(); // the sliders enable at once, not after the camera has taken the settings
             await ApplyCameraNowAsync();
         }
 
@@ -202,7 +203,8 @@ namespace W10MWebCam
             if (sender == FocusAutoToggle) { _tuning.FocusAuto = on; _tuning.ReleaseFocusHold(); }
             else if (sender == ExposureAutoToggle) _tuning.ExposureAuto = on;
             else if (sender == WbAutoToggle) _tuning.WbAuto = on;
-            await ApplyCameraNowAsync(); // all three on Auto switches the main switch on and hides the sliders
+            UpdateCameraUi(); // the slider enables at once; all three on Auto switches the main switch on
+            await ApplyCameraNowAsync();
         }
 
         private void TuningSlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)

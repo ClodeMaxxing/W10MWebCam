@@ -97,7 +97,7 @@
     <Compile Include="MainPage.Power.cs">
       <DependentUpon>MainPage.xaml</DependentUpon>
     </Compile>
-    <Compile Include="MainPage.Adjust.cs">
+    <Compile Include="MainPage.Display.cs">
       <DependentUpon>MainPage.xaml</DependentUpon>
     </Compile>
     <Compile Include="MainPage.Network.cs">

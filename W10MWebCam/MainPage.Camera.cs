@@ -71,10 +71,8 @@ namespace W10MWebCam
         {
             try
             {
-                var cap = _camera?.Capture;
-                if (cap == null) return;
-                await _tuning.ApplyAsync(cap, force: true);
-                UpdateCameraUi();
+                if (_camera?.Capture == null) return;
+                await ApplyTuningAsync(force: true);
                 _nextHoldAt = DateTime.Now; // "Hold focus once settled": CameraTick tries it (again every minute until it settles)
             }
             catch (Exception ex) { Log("Camera settings: " + ex.Message); }
@@ -87,16 +85,39 @@ namespace W10MWebCam
             try
             {
                 SaveCameraSettings();
-                var cap = _camera?.Capture;
-                if (cap != null)
-                {
-                    _settings.Values["TuningInProgress"] = true; // cleared when the camera accepted the settings; see the crash guard in LoadCameraSettings
-                    await _tuning.ApplyAsync(cap);
-                    _settings.Values["TuningInProgress"] = false;
-                }
-                UpdateCameraUi();
+                await ApplyTuningAsync();
             }
             catch (Exception ex) { Log("Camera settings: " + ex.GetType().Name + ": " + ex.Message); }
+        }
+
+        private bool _applyingTuning, _tuningPending, _tuningForce;
+
+        /// <summary>
+        /// Sends the camera settings. Changes that arrive while one is being sent are queued, not dropped, and run one
+        /// after another (never two at once: repeated driver calls in parallel caused errors in W10MSecurityCam).
+        /// force = resend everything (the camera just (re)started).
+        /// </summary>
+        private async Task ApplyTuningAsync(bool force = false)
+        {
+            if (_camera?.Capture == null) return;
+            if (force) _tuningForce = true;
+            if (_applyingTuning) { _tuningPending = true; return; }
+            _applyingTuning = true;
+            _settings.Values["TuningInProgress"] = true; // cleared when the camera accepted the settings; see the crash guard in LoadCameraSettings
+            try
+            {
+                do
+                {
+                    _tuningPending = false;
+                    bool f = _tuningForce; _tuningForce = false;
+                    var cap = _camera?.Capture;
+                    if (cap == null) break;
+                    await _tuning.ApplyAsync(cap, f);
+                } while (_tuningPending);
+                _settings.Values["TuningInProgress"] = false;
+                UpdateCameraUi();
+            }
+            finally { _applyingTuning = false; }
         }
 
         // ---- manual sliders (as in W10MDashcam): shown while at least one of focus / exposure / white balance is manual.

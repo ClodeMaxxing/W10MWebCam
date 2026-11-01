@@ -110,9 +110,10 @@ On the phone and on the settings page:
 | Resolution | Recording format of the rear camera | 3840×2160 @ 30 for content, 1920×1080 @ 30 for calls |
 | Bitrate | Encoder target. *Auto* ≈ 37 Mbps at 4K30, ≈ 9 Mbps at 1080p30 | Auto |
 | Keyframe every | How often a full frame is sent. Shorter = faster joins and recovery, slightly more data | 1 s |
-| Black screen while streaming | Black OLED screen and minimum brightness. Saves battery and lets the phone charge | On |
+| Black screen while streaming | Black OLED screen and minimum brightness, preview stopped. Saves battery and lets the phone charge | On |
+| Keep the preview running behind the black screen | A tap on the black screen then shows the picture at once; costs CPU and heat (about twice the app's CPU). Heat protection forces it off | Off |
 | Start streaming when the app opens | Auto-start | On |
-| Preview on the phone | Live picture on the phone. Changes take effect while the stream is stopped (changing the preview during a 4K recording can stall it) | Your choice |
+| Preview on the phone (under Camera) | The picture while stopped, and while streaming unless the screen is blacked out. Adjusting the camera on the phone shows it for 60 s anyway; so does a tap on the dark preview area | Off |
 | Automatic focus, exposure and white balance | Off shows a slider and Auto / Manual switch for each, and the camera picture on the phone until 60 s after the last touch (while streaming, starting and ending the picture restart the stream once each) | On |
 | Focus once and lock | Focuses once and keeps the lens there (good for a fixed scene) | |
 | Flashlight | Only while streaming; switches off after 30 s because the LED heats the phone and cannot be dimmed | |

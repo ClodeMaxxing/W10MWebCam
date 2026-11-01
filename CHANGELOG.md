@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.4.2 (package 1.4.2.0)
+
+**Preview and black screen, one rule set in all three apps** (`MainPage.Display.cs`, kept in step by Sync-Core):
+- **Preview on the phone** moved from *Video* to *Camera* and is **off by default** (was on). On: the picture while
+  stopped, and while streaming unless the screen is blacked out.
+- **Black screen while streaming** also stops the preview. New under *Power*: **Keep the preview running behind the
+  black screen** (off by default: it costs CPU and heat), so a tap on the black screen shows the picture at once;
+  heat protection forces it off and puts it back afterwards.
+- **Show camera picture (60 s)** and **Black out the screen now** buttons on the main screen, as in the other apps;
+  **a tap on the dark preview area** shows the picture too. A preview that disagrees with the black screen is fixed
+  with one restart (automatic ones at most once a minute), so the screen can no longer go black with the preview
+  still running.
+- The manual focus / exposure / white balance sliders are always on screen, greyed while automatic, and enable the
+  moment *Automatic* is switched off instead of after the camera has taken the settings.
+- The settings page gains *Keep the preview running behind the black screen*; `/settings/set` gains `keeppreview=`.
+
 ## 1.4.1 (package 1.4.1.0)
 
 Feature parity with W10MSecurityCam and W10MDashcam: what one app of the family did better now exists in all three where

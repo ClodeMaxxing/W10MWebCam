@@ -167,6 +167,13 @@ namespace W10MWebCam
             string v;
             bool cameraChanged = false;
 
+            if (_protect)
+            {
+                bool had = false;
+                foreach (var k in new[] { "format", "bitrate", "powersave", "saveois", "savefocus", "torch" }) had |= f.Remove(k);
+                if (had) done.Add("heat protection is on: video, blackout, stabilization, hold focus and the flashlight can't be changed until charging resumes");
+            }
+
             if (f.TryGetValue("stream", out v))
             {
                 bool want = v == "start";

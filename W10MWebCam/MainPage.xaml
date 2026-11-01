@@ -321,9 +321,9 @@
                             Text="Black OLED screen at minimum brightness: saves battery and lets the phone charge while it streams 4K. Tap the black screen to see the controls for 15 s." /></Flyout></Button.Flyout></Button>
                     </Grid>
                     <Grid>
-                        <ToggleSwitch x:Name="HeatAutoToggle" Header="Lower to 1080p if the phone overheats" Toggled="HeatAutoToggle_Toggled" />
+                        <ToggleSwitch x:Name="HeatAutoToggle" Header="Lower to 1080p if the phone overheats" IsOn="True" Toggled="HeatAutoToggle_Toggled" />
                         <Button Style="{StaticResource InfoButton}"><Button.Flyout><Flyout><TextBlock Style="{StaticResource InfoText}"
-                            Text="When charging pauses on a good charger for 20 s the battery is hot. Off: only a warning. On: the stream drops to 1080p / 6 Mbps until charging has resumed (at least 3 minutes); your own settings stay as they are." /></Flyout></Button.Flyout></Button>
+                            Text="When charging pauses on a good charger for 20 s the battery is hot. On (the default): the stream drops to 1080p / 6 Mbps, the screen goes black, stabilization is switched off, focus is held and the flashlight is locked until charging has resumed (at least 3 minutes); your own settings stay as they are. Off: only a warning." /></Flyout></Button.Flyout></Button>
                     </Grid>
                     <Grid>
                         <ComboBox x:Name="UnplugBox" Header="When unplugged, stop streaming after" SelectionChanged="UnplugBox_SelectionChanged"

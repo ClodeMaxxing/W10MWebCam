@@ -499,7 +499,7 @@ namespace W10MWebCam
         private async void PowerSaveToggle_Toggled(object sender, RoutedEventArgs e)
         {
             if (_loading) return;
-            _settings.Values["PowerSave"] = PowerSaveToggle.IsOn;
+            if (!_protect) _settings.Values["PowerSave"] = PowerSaveToggle.IsOn; // forced on by heat protection: not saved
             await ApplyBlackoutAsync();
         }
 

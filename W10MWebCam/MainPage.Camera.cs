@@ -45,6 +45,7 @@ namespace W10MWebCam
             _settings.Values["CamFocus"] = _tuning.FocusPercent;
             _settings.Values["CamExposureMs"] = _tuning.ExposureMs;
             _settings.Values["CamWb"] = (int)_tuning.WhiteBalanceKelvin;
+            if (_protect) return; // stabilization and hold focus are forced on meanwhile: the person's own choices stay saved
             _settings.Values["SaveOis"] = _tuning.SaveOis;
             _settings.Values["SaveFocus"] = _tuning.SaveFocus;
         }
@@ -225,7 +226,8 @@ namespace W10MWebCam
         private string SetTorch(bool on)
         {
             string result;
-            if (on && (!_tuning.TorchSupported || _camera == null || !_camera.IsStreaming)) { on = false; result = "The flashlight works only while streaming"; }
+            if (on && _protect) { on = false; result = "Flashlight unavailable: heat protection is on"; }
+            else if (on && (!_tuning.TorchSupported || _camera == null || !_camera.IsStreaming)) { on = false; result = "The flashlight works only while streaming"; }
             else result = on ? "Flashlight on for " + TorchSeconds + " s" : "Flashlight off";
             bool was = _torchWanted;
             _torchWanted = on;
@@ -269,7 +271,7 @@ namespace W10MWebCam
             try
             {
                 TorchToggle.IsOn = _torchWanted;
-                TorchToggle.IsEnabled = _torchWanted || (_tuning.TorchSupported && _camera != null && _camera.IsStreaming);
+                TorchToggle.IsEnabled = _torchWanted || (_tuning.TorchSupported && _camera != null && _camera.IsStreaming && !_protect);
             }
             finally { _loading = was; }
         }
@@ -295,7 +297,7 @@ namespace W10MWebCam
                 SetTorch(false);
                 Log("Flashlight switched off automatically");
             }
-            if (TorchToggle.IsEnabled != (_torchWanted || (_tuning.TorchSupported && _camera != null && _camera.IsStreaming))) UpdateTorchUi();
+            if (TorchToggle.IsEnabled != (_torchWanted || (_tuning.TorchSupported && _camera != null && _camera.IsStreaming && !_protect))) UpdateTorchUi();
             if (_tuning.SaveFocus && _tuning.FocusAuto && !_tuning.FocusHeld && !_holdBusy && !_busy &&
                 _camera != null && _camera.IsStreaming && DateTime.Now >= _nextHoldAt)
             {

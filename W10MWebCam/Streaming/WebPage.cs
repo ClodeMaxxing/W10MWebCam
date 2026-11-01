@@ -110,7 +110,7 @@ input.tx{background:#0d140f;color:#d6e8d9;border:1px solid #1f3a26;border-radius
 
 <h2>Power</h2>
 <div class='row'><label><input type='checkbox' id='powersave'> Black screen while streaming</label><i class='tip' data-tip='Black OLED screen at minimum brightness: saves battery and lets the phone charge while it streams 4K.'>i</i></div>
-<div class='row'><label><input type='checkbox' id='heatauto'> Lower to 1080p if the phone overheats</label><i class='tip' data-tip='When charging pauses on a good charger for 20 s the battery is hot. Off: only a warning. On: the stream drops to 1080p / 6 Mbps until charging has resumed (at least 3 minutes); your own settings stay as they are.'>i</i></div>
+<div class='row'><label><input type='checkbox' id='heatauto'> Lower to 1080p if the phone overheats</label><i class='tip' data-tip='When charging pauses on a good charger for 20 s the battery is hot. On (the default): the stream drops to 1080p / 6 Mbps, the screen goes black, stabilization is switched off, focus is held and the flashlight is locked until charging has resumed (at least 3 minutes); your own settings stay as they are. Off: only a warning.'>i</i></div>
 <div class='row'><label>When unplugged, stop streaming after <select id='unplug'></select></label><i class='tip' data-tip='A countdown shows on the phone when it goes on battery while streaming; when it ends the stream stops. It starts again when the power returns.'>i</i></div>
 
 <h2>Network</h2>
@@ -214,6 +214,7 @@ function render(){
  fill($('format'),st.formats,st.formatIndex);fill($('bitrate'),st.bitrates.map(function(b){return b=='Auto'?'Bitrate: auto':b}),st.bitrateIndex);
  fill($('keyframe'),st.keyframes,st.keyframeIndex);fill($('unplug'),st.unplugChoices,st.unplugIndex);
  ['format','bitrate','keyframe','unplug'].forEach(function(i){$(i).disabled=!w});
+ if(st.protect){$('format').disabled=$('bitrate').disabled=true} // lowered by heat protection until charging resumes
  var wifi=st.wifi||'',usb='http://127.0.0.1:'+st.usbPort,wf=wifi?'http://'+esc(wifi)+':'+st.logPort:'';
  var ad=function(l,v){return '<div class=\'addr\'><b>'+l+'</b><code>'+v+'</code></div>'};
  $('connect').innerHTML='<div class=\'grp\'><b>USB cable</b>'+ad('Video','tcp://127.0.0.1:'+st.usbPort)+ad('Settings (changes after logging in)',usb+'/settings')+'</div>'
@@ -238,11 +239,12 @@ function render(){
  $('ea').disabled=!w||!st.exposureSupported;$('es').disabled=!w||!st.exposureSupported||st.exposureAuto;
  $('wa').disabled=!w||!st.wbSupported;$('ws').disabled=!w||!st.wbSupported||st.wbAuto;
  $('sf').checked=st.saveFocus;$('sf').disabled=!w;
- $('torch').checked=st.torchOn;$('torch').disabled=!w||!st.torchSupported||(!st.streaming&&!st.torchOn);
- $('torchnote').textContent=!st.torchSupported?'This camera has no flashlight control.':st.torchOn?'On - switches off in '+st.torchLeftSec+' s.':!st.streaming?'Start the stream to use the flashlight.':'';
- $('ois').checked=st.saveOis;$('ois').disabled=!w||!st.oisSupported;
+ $('torch').checked=st.torchOn;$('torch').disabled=!w||!st.torchSupported||(!st.streaming&&!st.torchOn)||st.protect;
+ $('torchnote').textContent=!st.torchSupported?'This camera has no flashlight control.':st.protect?'Locked by heat protection.':st.torchOn?'On - switches off in '+st.torchLeftSec+' s.':!st.streaming?'Start the stream to use the flashlight.':'';
+ $('ois').checked=st.saveOis;$('ois').disabled=!w||!st.oisSupported||st.protect;
  $('powersave').checked=st.powerSave;$('autostart').checked=st.autoStart;$('preview').checked=st.preview;$('heatauto').checked=st.heatAuto;
  ['powersave','autostart','preview','heatauto'].forEach(function(i){$(i).disabled=!w});
+ if(st.protect){$('powersave').disabled=$('sf').disabled=true} // forced on by heat protection
  $('lens').value=st.front?'front':'rear';$('lens').disabled=!w;
  // each switch shows its real state on the phone as an ON / OFF pill, also when this page can't change it
  var pill=function(id,on){var e=$('st-'+id);e.textContent=on?'ON':'OFF';e.className='st'+(on?'':' off')};

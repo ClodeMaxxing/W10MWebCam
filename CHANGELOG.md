@@ -1,5 +1,98 @@
 # Changelog
 
+## 1.4.4 (package 1.4.4.0)
+
+**The phone screen and the settings page redrawn as one**, the design that W10MSecurityCam 1.4 introduced. The settings
+page is now a mirror of the phone: the same card, bars and drawers, with two differences only, the *Log in* button and
+the web-page switch, which the page cannot turn off. A tap on a view-only page goes to the login.
+
+- **Status card first**, with the app name as its top band. Its header row is the **stream button**: a tall bar with a
+  green edge light while streaming, a pulsing red light, *STREAMING* / *START STREAM* / *HEAT PROTECTION* and the
+  format pill (`4K30`, `SAFE` in safe mode). Under it the FPS / MBPS / VIEWERS tiles, then the phone tiles and the
+  notices.
+- **Service groups** H.264 VIDEO and WEB UI, each with a Wi-Fi and a USB row and the full address (the Wi-Fi video row
+  reads *off* while *Video over Wi-Fi* is off). The USB rows turn green once a PC has connected over the cable, amber
+  *cable?* on external power, grey *no USB*; a tap opens *Network*. They replace the *Connect from the PC* boxes and
+  the service pills.
+- **Preview, Screensaver and Flashlight** are full-width bar buttons with an edge light. *Black screen while streaming*
+  is now called **Screensaver**; Preview and Screensaver exclude each other. The *Preview on the phone* switch, *Show
+  camera picture (60 s)* and *Black out the screen now* are gone: **Preview** shows the picture for 60 s while
+  streaming behind the screensaver, otherwise until it is pressed again; lit, it ends any picture.
+- **Preview on always** (Power; was *Keep the preview running behind the black screen*) starts the preview when
+  switched on, and the Preview bar then reads *ON · ALWAYS*: no 60 s countdown while it is set.
+- **Drawers** are rounded cards with header bands; every switch is a row with an edge light; camera, resolution,
+  bitrate, keyframe and the unplug countdown are picker tiles with a themed list; focus, exposure and white balance are
+  value tiles (Auto / Manual segment, the value, the slider). **Focus once and lock** is an on/off row (*ON · LOCKED*,
+  *ON · HELD*; pressed while on it releases to continuous autofocus). **Image stabilization** is a row under Camera (on
+  by default); *Stabilization off (fixed mount)* and *Hold focus once it has settled* are gone (the automatic focus hold
+  is off; Focus once does it by hand).
+- **Heat protection** (was *Lower to 1080p if the phone overheats*) asks before it goes off. Off and hot, a distinct
+  **HOT, no protection** warning (badge, Power alert, settings page, log, chime) replaces the intervention.
+- **Flashlight without the stream:** it works whenever the camera is open. With the stream stopped the preview is
+  started quietly to carry the LED and ended with it. Still 30 s, still locked by heat protection.
+- **Defaults:** the highest format the camera offers (4K30 on the Lumia 950, was 1080p30) and 24 Mbps above 1080p
+  (4 Mbps at or below); the bitrate follows the resolution across the 1080p line. Existing installs take the new
+  defaults once; pick 1080p30 again for video calls.
+- `/settings/state` adds `heatProtect`, `focusHeld`, `focusLocked`, `saveOis`, `oisSupported`, `wifiVideo`, `webOn`,
+  `logOn`, `statsOn`, `wifiIp`, `usbPort`, `wifiPort`, `viewersUsb`, `viewersWifi`, `usbSeen`, `usbCable`,
+  `torchSupported` and `focusPercent`; `/settings/set` takes `heatprotect=on|off` as well as the old field name.
+
+1.4.3 was the first build of this redesign and was not released.
+
+## 1.4.2 (package 1.4.2.0)
+
+**Preview and black screen, one rule set in all three apps** (`MainPage.Display.cs`, kept in step by Sync-Core):
+- **Preview on the phone** moved from *Video* to *Camera* and is **off by default** (was on). On: the picture while
+  stopped, and while streaming unless the screen is blacked out.
+- **Black screen while streaming** also stops the preview. New under *Power*: **Keep the preview running behind the
+  black screen** (off by default: it costs CPU and heat), so a tap on the black screen shows the picture at once;
+  heat protection forces it off and puts it back afterwards.
+- **Show camera picture (60 s)** and **Black out the screen now** buttons on the main screen, as in the other apps;
+  **a tap on the dark preview area** shows the picture too. A preview that disagrees with the black screen is fixed
+  with one restart (automatic ones at most once a minute), so the screen can no longer go black with the preview
+  still running.
+- The manual focus / exposure / white balance sliders are always on screen, greyed while automatic, and enable the
+  moment *Automatic* is switched off instead of after the camera has taken the settings.
+- The settings page gains *Keep the preview running behind the black screen*; `/settings/set` gains `keeppreview=`.
+
+## 1.4.1 (package 1.4.1.0)
+
+Feature parity with W10MSecurityCam and W10MDashcam: what one app of the family did better now exists in all three where
+it applies. The USB and Wi-Fi video, the viewers and the login are unchanged.
+
+**What you notice**
+- **Heat protection is on by default and does the full set:** when charging pauses on a good charger for 20 s the
+  stream drops to 1080p / 6 Mbps and the screen goes black, stabilization is switched off, focus is held and the
+  flashlight is locked until charging has resumed; the greyed controls and the web page say so, and your own settings
+  come back afterwards. *Lower to 1080p if the phone overheats* off = warning only, as before. When the stream was busy
+  at that moment the restart is now owed and retried, so the stream can no longer stay at 4K under heat protection.
+- **A chime and a vibration** when the power-loss countdown starts and when heat protection sets in; a short one when
+  charging resumes.
+- **Service pills under the start button:** USB video (viewers), Wi-Fi video (address, viewers or OFF) and the web
+  page, green while streaming and grey when stopped. Tapping the Wi-Fi or Web pill flips the same switch as under
+  *Network*; tapping USB opens *Network*. The button says *Start video stream*.
+- **Changing the login needs the current password** (new *Current password* box), as in W10MDashcam; the reset to
+  admin / admin needs it too.
+- **4K start hygiene** from the other apps: 6 s of settling before a 4K auto-start (a cold 4K start right after power-up
+  crashed the camera pipeline there), and the camera settings are re-sent 2.5 s after a start instead of at once.
+- **Crash guards for the camera settings:** if the app dies while sending them (or the stabilization setting), it comes
+  back with automatic settings instead of crashing again on a saved value. Settings are sent one after another, never
+  two at once.
+- *Hold focus once it has settled* first tries 30 s after a start and, when it fails (too dark), again after 10 minutes
+  instead of every minute.
+
+**Under the hood**
+- A memory line in the log every 30 minutes (and every 5 past 75 % of the limit), with the peak; `/status` gains
+  `peakMemoryMB`, `managedMemoryMB`, `restarts` and `lastRestartReason`.
+- `/status` also carries the other apps' field names (`uptimeSeconds`, `batteryPercent`, `sensorToEncodedMs`,
+  `keyframeSeconds`, `wifiSignalBars`, `cpuPhonePct`, `cpuAppPct`, `bitrateSetting`, `cameraMode`, `loginRequired`,
+  `time`) plus `charging` and `onExternalPower`; the existing names stay.
+- Changes (`/settings/set`) are read from the request body only, never from the URL.
+- The web page reloads itself after an app update.
+- `tools\Soak-Monitor.ps1` is the same script in all three repositories and collects the phone log every 5 minutes
+  while the log page is on; `tools\Make-Release.ps1` finds the app's name itself and takes `-Version`.
+- The project references the Windows Mobile Extensions for the vibration API.
+
 ## 1.3 (package 1.3.0.0)
 
 **What you notice**

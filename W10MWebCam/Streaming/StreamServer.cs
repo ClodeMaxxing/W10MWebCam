@@ -70,6 +70,8 @@ namespace W10MWebCam.Streaming
 
         /// <summary>Viewers currently receiving video (web requests and viewers still waiting for a keyframe don't count).</summary>
         public int ClientCount { get { lock (_lock) { int n = 0; foreach (var c in _clients) if (c.Synced && !c.IsClosed) n++; return n; } } }
+        /// <summary>Viewers on one transport: the USB cable, or Wi-Fi (for the phone's service pills).</summary>
+        public int ViewerCount(bool fromUsb) { lock (_lock) { int n = 0; foreach (var c in _clients) if (c.Synced && !c.IsClosed && c.FromUsb == fromUsb) n++; return n; } }
 
         public async Task StartAsync()
         {

@@ -53,7 +53,7 @@ screen locks or another app opens, and there is no way around that for an app. T
 browser asks for it before the first change (or press **Log in**). USB is not exempt because any program or web page on
 the PC the phone is plugged into can reach the USB port. Viewing the page, `/status` and the video need no login.
 A new install uses **admin / admin**, with a warning on the phone and the page until you change it (Network > Login, or
-on the settings page). An empty password resets it to admin / admin. Since 1.3 a new password needs at least 8
+on the settings page; changing it needs the current password as well). An empty password resets it to admin / admin. Since 1.3 a new password needs at least 8
 characters (a shorter one set before keeps working until you change it). After 5 wrong logins from one address within a
 minute, that address is refused for 30 seconds (`429 Too Many Requests`); viewing without a login is not affected. The
 phone renews the login every 5 minutes, and the browser takes the new one by itself without asking for the password.
@@ -94,29 +94,43 @@ Stream, enter the address, tick *Show more options* and add `:demux=h264` to *Ed
 
 ## Phone screen and settings page
 
-Both use the same green look as W10MSecurityCam and W10MDashcam. At the top: **Start/Stop streaming** and the
-**status card** (state, resolution, viewers, fps and Mbps, and tiles for battery, Wi-Fi, temperature, phone and app CPU,
-memory, engine, latency and power). Red notices are for heat and safe mode, amber ones for the charger. The settings fold
-away in sections (Video, Camera, Power, Network, Viewer setup, Details and log); the (i) buttons explain each one. On the settings page, hover
-or tap a tile or an (i) for its explanation; folded sections are remembered in that browser.
+The settings page is a mirror of the phone screen, in the green look shared with W10MSecurityCam and W10MDashcam: the
+same card, bar buttons and drawers in the same order. From the top:
+
+- **The status card**, with the app name as its top band. Its header row is the **stream button**: a tall bar with a
+  green edge light while streaming, a pulsing red light, **STREAMING** / **START STREAM** (**HEAT PROTECTION** in red)
+  and the format pill (`4K30`; `SAFE` in safe mode). Under it the **FPS**, **MBPS** and **VIEWERS** tiles, then the
+  phone tiles (battery, Wi-Fi, temperature, phone and app CPU, memory, engine, latency, power). Red notices are for
+  heat and safe mode, amber ones for the charger and the default login.
+- **Two service groups**, **H.264 VIDEO** and **WEB UI**, each with a **Wi-Fi** and a **USB** row and the full address
+  to paste into OBS or a browser. The dot is green when that way in works: USB once a PC has connected over the cable
+  (amber *cable?* on external power before that, grey *no USB*), Wi-Fi video while *Video over Wi-Fi* is on and the
+  phone has an address (*off* otherwise). A tap opens *Network*.
+- **Three bar buttons** with an edge light that is green while on: **Preview** (the camera picture: 60 s while
+  streaming behind the screensaver, otherwise until pressed again; lit, it ends any picture), **Screensaver** (on by
+  default: a black OLED screen at minimum brightness while streaming, preview off, so the phone can charge; tap it to
+  read the status for 15 s) and **Flashlight** (works whenever the camera is open, streaming or not; off after 30 s
+  because the LED heats the phone and cannot be dimmed; with the stream stopped the preview carries it).
+- **Drawers:** Video, Camera, Power, Network, Viewer setup, Details and log. Tap a head to open or close it; the (i)
+  buttons explain each setting. The settings page remembers the folded drawers in that browser and adds a *Log in*
+  button; its own *Web page* switch is locked.
 
 On the phone and on the settings page:
 
-| Setting | What it does | Suggested |
-|---|---|---|
-| Resolution | Recording format of the rear camera | 3840×2160 @ 30 for content, 1920×1080 @ 30 for calls |
-| Bitrate | Encoder target. *Auto* ≈ 37 Mbps at 4K30, ≈ 9 Mbps at 1080p30 | Auto |
-| Keyframe every | How often a full frame is sent. Shorter = faster joins and recovery, slightly more data | 1 s |
-| Black screen while streaming | Black OLED screen and minimum brightness. Saves battery and lets the phone charge | On |
-| Start streaming when the app opens | Auto-start | On |
-| Preview on the phone | Live picture on the phone. Changes take effect while the stream is stopped (changing the preview during a 4K recording can stall it) | Your choice |
-| Automatic focus, exposure and white balance | Off shows a slider and Auto / Manual switch for each, and the camera picture on the phone until 60 s after the last touch (while streaming, starting and ending the picture restart the stream once each) | On |
-| Focus once and lock | Focuses once and keeps the lens there (good for a fixed scene) | |
-| Flashlight | Only while streaming; switches off after 30 s because the LED heats the phone and cannot be dimmed | |
-| Stabilization off (fixed mount) | For a fixed mount: less processing and heat. Restarts the stream once | Off |
-| Hold focus once it has settled | Parks the lens after autofocus settles (stops hunting). Not for a subject that moves toward or away from the camera | Off |
-| Lower to 1080p if the phone overheats | Drops to 1080p / 6 Mbps while the battery is hot. See *Power and heat* | Off |
-| When unplugged, stop streaming after | See *Power and heat* | Never |
+| Setting | Drawer | What it does | Suggested |
+|---|---|---|---|
+| Camera | Video | Rear or front camera | Rear |
+| Resolution | Video | Recording format. The default is the highest the camera offers | 3840×2160 @ 30 for content, 1920×1080 @ 30 for calls |
+| Bitrate | Video | Encoder target. Follows the resolution: 24 Mbps above 1080p, 4 Mbps at or below. *Auto* ≈ 37 Mbps at 4K30, ≈ 9 Mbps at 1080p30 | The default |
+| Keyframe every | Video | How often a full frame is sent. Shorter = faster joins and recovery, slightly more data | 1 s |
+| Automatic focus, exposure and white balance | Camera | Off: a Focus, Exposure and White balance tile each with an Auto / Manual segment, the value and a slider. Adjusting on the phone shows the picture for 60 s | On |
+| Image stabilization | Camera | Off saves processing and heat on a fixed mount. Restarts the stream once | On |
+| Focus once and lock | Camera | An on/off row: focuses once and keeps the lens there (*ON · LOCKED*); pressed again it releases to continuous autofocus | |
+| Heat protection | Power | While the battery is hot: 1080p / 6 Mbps, screensaver on, stabilization off, flashlight locked. Asks before it goes off; off, a hot phone gets a *HOT, no protection* warning. See *Power and heat* | On |
+| Preview on always | Power | The preview runs even behind the screensaver, so a tap shows the picture at once; the Preview bar reads *ON · ALWAYS*. Costs CPU and heat (about twice the app's CPU); heat protection forces it off | Off |
+| When unplugged, stop streaming after | Power | See *Power and heat* | Never |
+| Video over Wi-Fi, Web page, Log page, Stats page | Network | The services and their addresses | |
+| Start streaming when the app opens | Video | Auto-start | On |
 
 Changing resolution, bitrate, keyframe or stabilization while streaming restarts the stream for a moment; OBS
 reconnects by itself.
@@ -134,12 +148,17 @@ and a hot battery makes Windows pause charging.
   changes, so it needs a few minutes) plus phone and app CPU. Logged once a minute.
 - **"Charger insufficient"** appears when the battery drains although the phone says it is charging. Use a 2 A or
   better charger (through a powered hub or a dock), or a lower resolution.
-- **Heat:** Windows gives apps no temperature. When charging pauses for 20 s on a charger Windows calls adequate (below
-  95 %), the battery is hot and the app warns. With **Lower to 1080p if the phone overheats** on, it also
-  lowers the stream to 1080p / 6 Mbps until charging has resumed for 30 s (and at least 3 minutes); your own settings are never
-  overwritten. It is off by default, so a recording never changes resolution unexpectedly.
+- **Heat:** Windows gives apps no temperature. When charging pauses on a charger Windows calls adequate (below 95 %),
+  the Temp badge reads *Paused*; after 20 s of that the battery is hot (*Hot*) and the app warns. With **Heat
+  protection** on (the default) it also acts, as W10MSecurityCam and W10MDashcam do: the stream drops to 1080p /
+  6 Mbps, the screensaver goes on, stabilization is switched off and the flashlight is locked, with a chime and a
+  vibration, until charging has resumed for 30 s (and at least 3 minutes); the greyed controls say so and your own
+  settings come back afterwards. Switching it off asks first; off, a hot phone gets a distinct *HOT, no protection*
+  warning (badge, Power alert, settings page, log, chime) and the stream is left alone, so a recording never changes
+  resolution unexpectedly.
 - **Stop when unplugged** (off by default): when the phone goes on battery while streaming, a countdown appears on the
-  screen (it lifts the blackout) and the stream stops when it ends, so the phone isn't run flat. **Keep streaming**
+  screen (it lifts the blackout, with a chime and a vibration) and the stream stops when it ends, so the phone isn't
+  run flat. **Keep streaming**
   skips it once. The stream starts again when power returns while the app is open.
 
 ## Troubleshooting
@@ -156,7 +175,7 @@ and a hot battery makes Windows pause charging.
 | The app closes by itself | Switch on Network > Log page and run `tools\Get-Phone-Log.cmd`: the log keeps the last three sessions, marked CRASHED / closed normally / ended abruptly. For a Windows crash dump, see `Crash-Dumps.ps1` below. |
 | Stream stops when the screen locks | Expected (Windows limitation). Keep the app in front; the blackout screen keeps the screen awake. |
 | Battery drains / "Charger insufficient" | Better power (2 A charger, powered hub) or 1080p. Keep the blackout on. |
-| Heat notice | Give the phone air (out of a case, not in the sun), lower the resolution, or turn on *Lower to 1080p if the phone overheats*. |
+| Heat notice | Give the phone air (out of a case, not in the sun), lower the resolution, and keep *Heat protection* (Power) on. |
 | Install says "same identity but different contents" | The version number is unchanged. A release: uninstall the app first (this resets its settings). Your own build: increase `Version` in `W10MWebCam/Package.appxmanifest`. |
 | Install asks for a PIN | Phone: Settings > Update & security > For developers > Pair, type the code. |
 

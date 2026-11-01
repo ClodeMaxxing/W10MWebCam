@@ -36,7 +36,6 @@ namespace W10MWebCam
         private readonly PowerMonitor _power = new PowerMonitor();
         private readonly DisplayRequest _displayRequest = new DisplayRequest();
         private readonly DispatcherTimer _statsTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
-        private readonly DispatcherTimer _wakeTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(15) };
         private readonly ApplicationDataContainer _settings = ApplicationData.Current.LocalSettings;
         private readonly DateTime _launchedAt = DateTime.Now;
 
@@ -45,14 +44,16 @@ namespace W10MWebCam
         private bool _busy;
         private DateTime _busySince;
         private bool _keepAwake;
-        private BrightnessOverride _brightness;
-        private bool _blackedOut;
 
         // crash guard + stall watchdog
         private DateTime _startedAt = DateTime.MinValue;
         private int _nativeStalls;
         private DateTime _lastStall = DateTime.MinValue;
         private bool _safeMode;
+        private int _restarts;                 // stream restarts the app made by itself (for /status)
+        private string _lastRestartReason = "";
+
+        private bool _uiReady; // true once the XAML is built (handlers that fire during InitializeComponent wait for it)
 
         private sealed class KeyframeOption
         {
@@ -93,6 +94,7 @@ namespace W10MWebCam
             StartLogWriter();
             LaunchSelfCheck();
             InitializeComponent();
+            _uiReady = true; // switches with IsOn="True" in the XAML fire their handlers during InitializeComponent, before later controls exist
 
             VersionText.Text = "v" + AppVersion;
 
@@ -105,7 +107,8 @@ namespace W10MWebCam
             _server.Http = _http;
             _logServer = new LogServer(_http) { Log = Log };
             _statsTimer.Tick += StatsTimer_Tick;
-            _wakeTimer.Tick += WakeTimer_Tick;
+            // Any touch on the page (handled or not) keeps a woken screen awake and a shown picture showing (MainPage.Display.cs).
+            AddHandler(PointerPressedEvent, new Windows.UI.Xaml.Input.PointerEventHandler((s, e) => TouchKeepsDisplay()), true);
             Window.Current.VisibilityChanged += (s, e) => { if (!e.Visible) Log("App hidden (screen locked or switched away)"); };
 
             BitrateBox.Items.Add(new BitrateOption { Bps = 0 });
@@ -179,6 +182,7 @@ namespace W10MWebCam
             catch (Exception ex)
             {
                 _loading = false;
+                UpdatePickTexts();
                 Log("ERROR starting camera: " + ex.Message);
             }
         }
@@ -205,10 +209,18 @@ namespace W10MWebCam
                 foreach (var f in formats) ResolutionBox.Items.Add(f);
                 Log(formats.Count + " recording formats, up to " + (formats.Count > 0 ? formats[0].ToString() : "none"));
 
+                // Defaults (v1.4.3+): the highest resolution the camera offers, 24 Mbps above 1080p (4 Mbps at 1080p or below).
+                // Settings saved by older versions are reset once.
+                if (!(_settings.Values["DefaultsVersion"] is int dv) || dv < 3)
+                {
+                    _settings.Values.Remove(FormatSettingKey);
+                    _settings.Values.Remove("Bitrate");
+                    _settings.Values.Remove("BitrateBps");
+                    _settings.Values["DefaultsVersion"] = 3;
+                    Log("Applied defaults (highest resolution, 24 Mbps above 1080p)");
+                }
                 string savedFormat = _settings.Values[FormatSettingKey] as string;
-                ResolutionBox.SelectedItem = formats.FirstOrDefault(f => f.ToString() == savedFormat)
-                    ?? formats.FirstOrDefault(f => f.Width == 1920 && f.Height == 1080 && Math.Round(f.Fps) == 30)
-                    ?? formats.FirstOrDefault();
+                ResolutionBox.SelectedItem = formats.FirstOrDefault(f => f.ToString() == savedFormat) ?? formats.FirstOrDefault();
                 if (_settings.Values["BitrateBps"] is int savedBps && savedBps >= 0)
                     SelectBitrate((uint)savedBps);
                 else if (_settings.Values["Bitrate"] is int savedBitrate && savedBitrate >= 0 && savedBitrate < BitrateBox.Items.Count)
@@ -216,16 +228,17 @@ namespace W10MWebCam
                     BitrateBox.SelectedIndex = savedBitrate; // a list index, saved by versions before BitrateBps
                     _settings.Values["BitrateBps"] = (int)SelectedBitrateBps;
                 }
+                else SelectBitrate(DefaultBitrateBps(ResolutionBox.SelectedItem as FormatOption));
                 _settings.Values.Remove("Bitrate");
                 if (_settings.Values["Keyframe"] is int kf && kf >= 0 && kf < KeyframeBox.Items.Count)
                     KeyframeBox.SelectedIndex = kf;
                 AutoStartToggle.IsOn = GetBool("AutoStart", true);
-                PowerSaveToggle.IsOn = GetBool("PowerSave", true);
-                PreviewToggle.IsOn = GetBool("Preview", true);
+                LoadDisplaySettings();
                 LoadPowerSettings();
                 LoadCameraSettings();
                 LoadNetworkSettings();
                 _loading = false;
+                UpdatePickTexts();
 
                 bool crashedLastTime = !resumeStreaming && _settings.Values["StartInProgress"] is bool sip && sip;
                 bool autoStarting = resumeStreaming || (AutoStartToggle.IsOn && !crashedLastTime);
@@ -234,8 +247,8 @@ namespace W10MWebCam
                 PreviewElement.FlowDirection = _camera.UsingFrontCamera ? FlowDirection.RightToLeft : FlowDirection.LeftToRight; // mirror the selfie view on the phone only
                 // Don't spin the preview up just to switch it off again: starting 4K recording while the
                 // preview is toggled right after camera power-up crashes the camera pipeline.
-                if (PreviewToggle.IsOn && !(autoStarting && PowerSaveToggle.IsOn)) await _camera.SetPreviewAsync(true);
-                UpdatePreviewNote();
+                if (PreviewWanted && !autoStarting) await _camera.SetPreviewAsync(true);
+                UpdatePreviewText();
 
                 ShowAddresses();
                 StartButton.IsEnabled = formats.Count > 0;
@@ -250,19 +263,24 @@ namespace W10MWebCam
                     _settings.Values["StartInProgress"] = false;
                     _camera.UseNativeSink = false;
                     _safeMode = true;
+                    _lastRestartReason = "safe mode after a crash while starting";
                     Log("SAFE MODE: the app closed unexpectedly while starting the stream last time.");
                     Log("Auto-start skipped; the standard (MP4) engine will be used until the app is reopened.");
                 }
                 else if (autoStarting && StartButton.IsEnabled)
                 {
-                    Log((resumeStreaming ? "Restarting the stream" : "Auto-start") + ": letting the camera settle for 2 s");
-                    await Task.Delay(2000);
+                    // 4K needs longer after power-up before recording starts (a cold 4K start crashed the camera pipeline
+                    // in W10MSecurityCam / W10MDashcam); after a camera switch the camera is warm, 2 s is enough.
+                    bool big = !resumeStreaming && ResolutionBox.SelectedItem is FormatOption af && (long)af.Width * af.Height > 1920L * 1080;
+                    Log((resumeStreaming ? "Restarting the stream" : "Auto-start") + ": letting the camera settle for " + (big ? 6 : 2) + " s");
+                    await Task.Delay(big ? 6000 : 2000);
                     await ToggleStreamingAsync();
                 }
             }
             catch (Exception ex)
             {
                 _loading = false;
+                UpdatePickTexts();
                 Log("ERROR starting camera: " + ex.Message);
             }
         }
@@ -325,8 +343,19 @@ namespace W10MWebCam
 
         private async void StartButton_Click(object sender, RoutedEventArgs e) => await ToggleStreamingAsync();
 
+        /// <summary>The bitrate a resolution gets by default: 24 Mbps above 1080p, 4 Mbps at 1080p or below.</summary>
+        private static uint DefaultBitrateBps(FormatOption f) => f != null && f.Height > 1080 ? 24000000u : 4000000u;
+
         private async void Setting_Changed(object sender, SelectionChangedEventArgs e)
         {
+            UpdatePickTexts();
+            if (!_loading && sender == ResolutionBox && ResolutionBox.SelectedItem is FormatOption nf && SelectedBitrateBps != 0)
+            {
+                // a resolution above 1080p gets 24 Mbps unless more was chosen; back at 1080p or below, 24 goes back to 4
+                uint want = DefaultBitrateBps(nf), cur = SelectedBitrateBps;
+                bool change = nf.Height > 1080 ? cur < want : cur == 24000000u;
+                if (change) { bool was = _loading; _loading = true; SelectBitrate(want); _loading = was; _settings.Values["BitrateBps"] = (int)want; Log("Bitrate set to " + want / 1000000 + " Mbps for " + nf); }
+            }
             if (_loading || _camera == null || !_camera.IsStreaming || _busy) return;
             Log("Setting changed - restarting stream");
             await RestartStreamAsync();
@@ -386,12 +415,12 @@ namespace W10MWebCam
                     // The preview only changes while no recording runs (changing it mid-recording stalls the 4K pipeline):
                     // decide it now, before recording starts.
                     await _camera.SetPreviewAsync(PreviewWanted);
-                    _tuning.ApplyPower(_camera.Capture); // stabilization: also only while stopped
+                    ApplyCameraPower(); // stabilization: also only while stopped
                     _tuning.FrameLimitMs = 1000.0 / Math.Max(1, video.Item1.Fps);
                     await _camera.StartStreamingAsync(video.Item1, video.Item2);
-                    StartButton.Content = "Stop streaming";
-                    await ApplyBlackoutAsync();
+                    UpdateStreamButton(true);
                     if (!_keepAwake) { _displayRequest.RequestActive(); _keepAwake = true; }
+                    await ApplyDisplayAsync();
                     var _ = AfterStreamStartAsync();
                 }
                 else
@@ -400,8 +429,7 @@ namespace W10MWebCam
                     await _camera.StopStreamingAsync();
                     ClearStartFlag();
                     StopUi();
-                    await _camera.SetPreviewAsync(IdlePreviewWanted);
-                    await ApplyBlackoutAsync();
+                    await ApplyDisplayAsync();
                 }
             }
             catch (Exception ex)
@@ -415,7 +443,7 @@ namespace W10MWebCam
             {
                 StartButton.IsEnabled = true;
                 _busy = false;
-                UpdatePreviewNote();
+                UpdatePreviewText();
             }
         }
 
@@ -427,96 +455,19 @@ namespace W10MWebCam
 
         private void StopUi()
         {
-            StartButton.Content = "Start streaming";
+            UpdateStreamButton(false);
             if (_keepAwake) { _displayRequest.RequestRelease(); _keepAwake = false; }
         }
 
-        // ------------------------------------------------------------------ blackout (battery saver)
+        // ------------------------------------------------------------------ display (black screen, preview): MainPage.Display.cs
 
-        /// <summary>
-        /// While streaming: screen at minimum brightness and a full black overlay (tap to wake for 15 s). This only
-        /// touches the overlay and brightness; the preview is decided when the stream starts.
-        /// </summary>
-        private async Task ApplyBlackoutAsync()
-        {
-            bool want = _camera != null && _camera.IsStreaming && PowerSaveToggle.IsOn;
-            if (want == _blackedOut) return;
-            _blackedOut = want;
-            try
-            {
-                if (_brightness == null) _brightness = BrightnessOverride.GetForCurrentView();
-                if (want && !_phoneAdjusting) // while adjusting the camera on the phone the screen stays lit (MainPage.Adjust.cs)
-                {
-                    if (_brightness.IsSupported)
-                    {
-                        _brightness.SetBrightnessLevel(0.0, DisplayBrightnessOverrideOptions.None);
-                        _brightness.StartOverride();
-                    }
-                    BlackoutOverlay.Visibility = Visibility.Visible;
-                }
-                else
-                {
-                    _wakeTimer.Stop();
-                    BlackoutOverlay.Visibility = Visibility.Collapsed;
-                    if (_brightness.IsSupported) _brightness.StopOverride();
-                }
-            }
-            catch (Exception ex) { Log("Blackout: " + ex.Message); }
-            UpdatePreviewNote();
-            await Task.CompletedTask;
-        }
-
-        private void UpdatePreviewNote()
-        {
-            bool previewing = _camera != null && _camera.Previewing;
-            PreviewOffText.Text = _camera != null && _camera.IsStreaming
-                ? (previewing ? "" : _phoneAdjusting ? "Starting the camera picture..." : "Streaming - preview off" + (PowerSaveToggle.IsOn ? " (blackout mode)" : " (it starts with the next stream start)"))
-                : "Preview off";
-            PreviewOffText.Visibility = previewing ? Visibility.Collapsed : Visibility.Visible;
-        }
-
-        private void BlackoutOverlay_Tapped(object sender, Windows.UI.Xaml.Input.TappedRoutedEventArgs e)
-        {
-            BlackoutOverlay.Visibility = Visibility.Collapsed;
-            if (_brightness != null && _brightness.IsSupported) _brightness.StopOverride();
-            UpdatePreviewNote();
-            _wakeTimer.Stop();
-            _wakeTimer.Start();
-        }
-
-        private void WakeTimer_Tick(object sender, object e)
-        {
-            _wakeTimer.Stop();
-            if (!_blackedOut || _phoneAdjusting || UnplugPanel.Visibility == Visibility.Visible) return;
-            BlackoutOverlay.Visibility = Visibility.Visible;
-            if (_brightness != null && _brightness.IsSupported)
-            {
-                _brightness.SetBrightnessLevel(0.0, DisplayBrightnessOverrideOptions.None);
-                _brightness.StartOverride();
-            }
-        }
-
-        private async void PowerSaveToggle_Toggled(object sender, RoutedEventArgs e)
-        {
-            if (_loading) return;
-            _settings.Values["PowerSave"] = PowerSaveToggle.IsOn;
-            await ApplyBlackoutAsync();
-        }
+        /// <summary>A banner that must stay visible (the power-loss countdown): the black screen waits.</summary>
+        private bool PanelOnScreen => UnplugPanel.Visibility == Visibility.Visible;
 
         private void AutoStartToggle_Toggled(object sender, RoutedEventArgs e)
         {
             if (_loading) return;
             _settings.Values["AutoStart"] = AutoStartToggle.IsOn;
-        }
-
-        private async void PreviewToggle_Toggled(object sender, RoutedEventArgs e)
-        {
-            if (_loading) return;
-            _settings.Values["Preview"] = PreviewToggle.IsOn;
-            if (_camera == null) return;
-            if (_camera.IsStreaming) Log("Preview " + (PreviewToggle.IsOn ? "on" : "off") + " applies when the stream is stopped or restarted");
-            else await _camera.SetPreviewAsync(IdlePreviewWanted);
-            UpdatePreviewNote();
         }
 
         // ------------------------------------------------------------------ stats + watchdog (once a second)
@@ -525,6 +476,7 @@ namespace W10MWebCam
         {
             if (!_launchHealthy && (DateTime.Now - _launchedAt).TotalSeconds >= 20) MarkLaunchHealthy();
             PowerTick();
+            DisplayTick();
             SampleStats();
             CameraTick();
             UpdateStats();
@@ -553,6 +505,8 @@ namespace W10MWebCam
             _lastStall = DateTime.Now;
             _nativeStalls++;
             Log("Low-latency engine stalled (no frames for 4 s) - restart #" + _nativeStalls);
+            _restarts++;
+            _lastRestartReason = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " encoder stalled";
             if (_nativeStalls >= 2)
             {
                 Log("Switching to the standard (MP4) engine until the app is reopened");
@@ -725,5 +679,19 @@ namespace W10MWebCam
             }
             LogText.Text = text;
         }
+    }
+}
+
+namespace W10MWebCam
+{
+    /// <summary>One row of a picker list (Camera, Resolution, Bitrate, Keyframe, Unplug): the item, its text and the row colours.</summary>
+    [Windows.UI.Xaml.Data.Bindable]
+    public sealed class PickRowItem
+    {
+        public object Value { get; set; }
+        public string Text { get; set; }
+        public Windows.UI.Xaml.Media.Brush Light { get; set; }
+        public Windows.UI.Xaml.Media.Brush Fore { get; set; }
+        public Windows.UI.Xaml.Media.Brush Back { get; set; }
     }
 }

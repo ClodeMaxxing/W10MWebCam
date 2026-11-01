@@ -5,7 +5,7 @@
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
   IgnorableNamespaces="uap mp">
 
-  <Identity Name="W10MWebCam" Publisher="CN=W10MWebCam" Version="1.3.0.0" />
+  <Identity Name="W10MWebCam" Publisher="CN=W10MWebCam" Version="1.4.4.0" />
   <mp:PhoneIdentity PhoneProductId="db67b76b-1f27-4598-afb2-16fda115fa58" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
   <Properties>

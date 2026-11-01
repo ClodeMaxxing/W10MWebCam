@@ -57,6 +57,8 @@ namespace W10MWebCam
             o["streaming"] = Bool(streaming);
             o["engine"] = Str(cam?.PathName ?? "");
             o["safeMode"] = Bool(_safeMode);
+            o["restarts"] = Num(_restarts);
+            o["lastRestartReason"] = Str(_lastRestartReason);
             var video = EffectiveVideo();
             o["format"] = Str(video?.Item1?.ToString() ?? "");
             o["fps"] = Num(cam?.Fps ?? 0);
@@ -67,6 +69,9 @@ namespace W10MWebCam
             int? pct = Percent(_battery);
             o["battery"] = Num(pct);
             o["batteryStatus"] = Str(_battery?.Status.ToString() ?? "unknown");
+            // charging = current flows into the battery; onExternalPower = a charger is connected (Charging or Idle)
+            o["charging"] = Bool(_battery != null && _battery.Status == Windows.System.Power.BatteryStatus.Charging);
+            o["onExternalPower"] = Bool(_battery != null && _battery.Status != Windows.System.Power.BatteryStatus.Discharging);
             o["charger"] = Str(_power.Supply);
             o["netWatts"] = Num(_power.NetWatts);
             o["drawWatts"] = Num(_power.DrawWatts);
@@ -77,6 +82,10 @@ namespace W10MWebCam
             {
                 o["memoryMB"] = Num(Windows.System.MemoryManager.AppMemoryUsage / 1048576.0);
                 o["memoryLimitMB"] = Num(Windows.System.MemoryManager.AppMemoryUsageLimit / 1048576.0);
+                ulong mem = Windows.System.MemoryManager.AppMemoryUsage;
+                if (mem > _peakMemory) _peakMemory = mem;
+                o["peakMemoryMB"] = Num(_peakMemory / 1048576.0);
+                o["managedMemoryMB"] = Num(GC.GetTotalMemory(false) / 1048576.0);
             }
             catch { }
             o["heat"] = Str(_heat);
@@ -96,6 +105,18 @@ namespace W10MWebCam
             o["blackout"] = Bool(_blackedOut);
             o["previewing"] = Bool(cam != null && cam.Previewing);
             o["wifi"] = Str(_wifiAddress);
+            // The same names as W10MSecurityCam's and W10MDashcam's /status, so one Soak-Monitor serves all three apps.
+            o["uptimeSeconds"] = o["uptime"];
+            o["batteryPercent"] = o["battery"];
+            o["sensorToEncodedMs"] = Num(cam?.LastLatencyMs ?? -1);
+            o["keyframeSeconds"] = o["keyframeSec"];
+            o["wifiSignalBars"] = o["wifiBars"];
+            o["cpuPhonePct"] = o["cpuPhone"];
+            o["cpuAppPct"] = o["cpuApp"];
+            o["bitrateSetting"] = Str(BitrateBox.SelectedItem?.ToString() ?? "");
+            o["cameraMode"] = Str(_tuning.Mode);
+            o["loginRequired"] = Bool(_http.Login.Enabled);
+            o["time"] = Str(DateTime.Now.ToString("yyyy-MM-ddTHH:mm:sszzz"));
             return o;
         }
 
@@ -112,9 +133,28 @@ namespace W10MWebCam
             o["unplugChoices"] = List(UnplugBox.Items.Select(i => i.ToString()));
             o["unplugIndex"] = Num(UnplugBox.SelectedIndex);
             o["powerSave"] = Bool(PowerSaveToggle.IsOn);
+            o["keepPreview"] = Bool(KeepPreviewToggle.IsOn);
             o["autoStart"] = Bool(AutoStartToggle.IsOn);
             o["preview"] = Bool(PreviewToggle.IsOn);
             o["heatAuto"] = Bool(HeatAutoToggle.IsOn);
+            o["heatProtect"] = Bool(HeatAutoToggle.IsOn);
+            o["focusHeld"] = Bool(_tuning.FocusHeld);
+            o["focusLocked"] = Bool(!_tuning.FocusAuto && _focusLockedByOnce);
+            o["saveOis"] = Bool(_tuning.SaveOis);
+            o["oisSupported"] = Bool(_tuning.OisSupported);
+            o["wifiVideo"] = Bool(WifiVideoToggle.IsOn);
+            o["webOn"] = Bool(WebToggle.IsOn);
+            o["logOn"] = Bool(LogToggle.IsOn);
+            o["statsOn"] = Bool(StatsToggle.IsOn);
+            o["wifiIp"] = Str(_wifiAddress);
+            o["usbPort"] = Num(UsbPort);
+            o["wifiPort"] = Num(WifiPort);
+            o["viewersUsb"] = Num(_server.ViewerCount(true));
+            o["viewersWifi"] = Num(_server.ViewerCount(false));
+            o["usbSeen"] = Bool(_server.ViewerCount(true) > 0 || (DateTime.Now - _http.LastUsbRequest).TotalSeconds < 30);
+            o["usbCable"] = Bool(_battery != null && _battery.Status != Windows.System.Power.BatteryStatus.Discharging);
+            o["torchSupported"] = Bool(_tuning.TorchSupported);
+            o["focusPercent"] = Num(_tuning.FocusPercent);
             o["focusSupported"] = Bool(_tuning.FocusSupported);
             o["exposureSupported"] = Bool(_tuning.ExposureSupported);
             o["wbSupported"] = Bool(_tuning.WhiteBalanceSupported);
@@ -164,6 +204,13 @@ namespace W10MWebCam
             string v;
             bool cameraChanged = false;
 
+            if (_protect)
+            {
+                bool had = false;
+                foreach (var k in new[] { "format", "bitrate", "powersave", "keeppreview", "saveois", "savefocus", "torch" }) had |= f.Remove(k);
+                if (had) done.Add("heat protection is on: video, black screen, preview behind it, stabilization, hold focus and the flashlight can't be changed until charging resumes");
+            }
+
             if (f.TryGetValue("stream", out v))
             {
                 bool want = v == "start";
@@ -189,10 +236,11 @@ namespace W10MWebCam
             { KeyframeBox.SelectedIndex = ki; _settings.Values["Keyframe"] = ki; done.Add("keyframe every " + KeyframeBox.SelectedItem); }
             if (f.TryGetValue("unplug", out v) && int.TryParse(v, out int ui) && ui >= 0 && ui < UnplugBox.Items.Count)
             { UnplugBox.SelectedIndex = ui; done.Add("stop when unplugged: " + UnplugBox.SelectedItem); }
-            if (f.TryGetValue("powersave", out v)) { PowerSaveToggle.IsOn = On(v); done.Add("blackout " + (On(v) ? "on" : "off")); }
+            if (f.TryGetValue("powersave", out v)) { await SetBlackScreenAsync(On(v)); done.Add("black screen " + (On(v) ? "on" : "off")); }
+            if (f.TryGetValue("keeppreview", out v)) { KeepPreviewToggle.IsOn = On(v); done.Add("preview behind the black screen " + (On(v) ? "on" : "off")); }
             if (f.TryGetValue("autostart", out v)) { AutoStartToggle.IsOn = On(v); done.Add("auto-start " + (On(v) ? "on" : "off")); }
             if (f.TryGetValue("preview", out v)) { PreviewToggle.IsOn = On(v); done.Add("preview " + (On(v) ? "on" : "off")); }
-            if (f.TryGetValue("heatauto", out v)) { HeatAutoToggle.IsOn = On(v); done.Add("lower to 1080p when hot " + (On(v) ? "on" : "off")); }
+            if (f.TryGetValue("heatauto", out v) || f.TryGetValue("heatprotect", out v)) { SetHeatProtect(On(v)); done.Add("heat protection " + (On(v) ? "on" : "off")); }
             if (f.TryGetValue("keepstreaming", out v) && _unplugAt != DateTime.MaxValue) done.Add(KeepStreaming());
 
             // Camera: focus / exposure / white balance apply immediately, even while streaming.

@@ -1,7 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Windows.Devices.Power;
+using Windows.Foundation.Metadata;
+using Windows.Media.Core;
+using Windows.Media.Playback;
 using Windows.System.Power;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
@@ -13,7 +17,8 @@ namespace W10MWebCam
     /// - a power readout (net watts into/out of the battery, CPU) logged every minute;
     /// - "charger insufficient" when the battery drains although the phone says it is charging (common on PC USB ports);
     /// - heat: Windows gives apps no temperature, but charging pausing (Idle) on a charger Windows calls Adequate, below
-    ///   95 %, for 20 s means the battery is hot. By default this only warns; "Lower to 1080p" makes it act;
+    ///   95 %, for 20 s means the battery is hot. "Lower to 1080p" (on by default) then makes the app act: 1080p / 6 Mbps,
+    ///   black screen, stabilization off, focus held and the flashlight locked until charging has resumed; off = warn only;
     /// - optional stop on power loss: a countdown when the phone goes on battery, then the stream stops.
     /// </summary>
     public sealed partial class MainPage
@@ -24,10 +29,39 @@ namespace W10MWebCam
         private DateTime _protectSince = DateTime.MinValue;
         private string _notice = "", _alert = "", _chargerNotice = "", _heat = "Healthy";
         private BatteryReport _battery;
+        private MediaPlayer _chime;
+
+        /// <summary>A short sound from the app's own files (media volume): ok = all good, else a warning. From W10MDashcam.</summary>
+        private void PlayChime(bool ok)
+        {
+            try
+            {
+                if (_chime == null) _chime = new MediaPlayer { AudioCategory = MediaPlayerAudioCategory.SoundEffects, Volume = 1.0 };
+                _chime.Source = MediaSource.CreateFromUri(new Uri(ok ? "ms-appx:///Assets/ClipSaved.wav" : "ms-appx:///Assets/ClipNone.wav"));
+                _chime.Play();
+            }
+            catch (Exception ex) { Log("Chime: " + ex.Message); }
+        }
+
+        private static async Task BuzzAsync(int times)
+        {
+            try
+            {
+                if (!ApiInformation.IsTypePresent("Windows.Phone.Devices.Notification.VibrationDevice")) return;
+                var v = Windows.Phone.Devices.Notification.VibrationDevice.GetDefault();
+                if (v == null) return;
+                for (int i = 0; i < times; i++)
+                {
+                    v.Vibrate(TimeSpan.FromMilliseconds(times == 1 ? 250 : 120));
+                    await Task.Delay(times == 1 ? 250 : 260);
+                }
+            }
+            catch { }
+        }
 
         private void LoadPowerSettings()
         {
-            HeatAutoToggle.IsOn = GetBool("HeatAuto", false);
+            HeatAutoToggle.IsOn = GetBool("HeatAuto", true);
             int secs = _settings.Values["UnplugStopSecs"] is int s ? s : 0;
             for (int i = 0; i < UnplugBox.Items.Count; i++)
                 if (((UnplugOption)UnplugBox.Items[i]).Seconds == secs) UnplugBox.SelectedIndex = i;
@@ -35,12 +69,43 @@ namespace W10MWebCam
 
         private int UnplugStopSeconds => (UnplugBox.SelectedItem as UnplugOption)?.Seconds ?? 0;
 
-        private void HeatAutoToggle_Toggled(object sender, RoutedEventArgs e)
+        /// <summary>Off asks first: without heat protection a hot phone keeps full video and the screen, and on a weak charger the battery drains.</summary>
+        private async void HeatAutoToggle_Toggled(object sender, RoutedEventArgs e)
         {
-            if (_loading) return;
-            _settings.Values["HeatAuto"] = HeatAutoToggle.IsOn;
-            if (!HeatAutoToggle.IsOn && _protect) { var _ = LeaveProtectionAsync("switched off"); }
+            if (_loading || !_uiReady) return;
+            if (!HeatAutoToggle.IsOn)
+            {
+                var dlg = new ContentDialog
+                {
+                    Title = "Turn heat protection off?",
+                    Content = "When the phone gets hot, nothing will be done about it: full video, the screen as set, the flashlight free. "
+                        + "On a charger that can't keep up (a PC USB port, a small adapter) the battery drains until the phone dies.",
+                    PrimaryButtonText = "Turn off",
+                    CloseButtonText = "Keep it on"
+                };
+                if (await dlg.ShowAsync() != ContentDialogResult.Primary)
+                {
+                    bool was = _loading; _loading = true;
+                    try { HeatAutoToggle.IsOn = true; } finally { _loading = was; }
+                    return;
+                }
+            }
+            SetHeatProtect(HeatAutoToggle.IsOn);
         }
+
+        /// <summary>From the switch or the web page (heatprotect=on|off).</summary>
+        private void SetHeatProtect(bool on)
+        {
+            _settings.Values["HeatAuto"] = on;
+            if (HeatAutoToggle.IsOn != on) { bool was = _loading; _loading = true; try { HeatAutoToggle.IsOn = on; } finally { _loading = was; } }
+            Log("Heat protection " + (on ? "on" : "OFF (the phone will not slow down when hot; on a weak charger the battery drains)"));
+            if (!on && _protect) { var _ = LeaveProtectionAsync("switched off"); }
+            if (!on && _pausedSecs >= 20) _hotUnprotectedShown = false; // already hot: the HOT warning fires on the next tick
+        }
+
+        /// <summary>Hot (20 s of paused charging on a good charger) while the Heat protection switch is off.</summary>
+        private bool HotUnprotected => !_protect && !HeatAutoToggle.IsOn && _pausedSecs >= 20;
+        private bool _hotUnprotectedShown;
 
         private void UnplugBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
@@ -66,9 +131,33 @@ namespace W10MWebCam
                 Log(_power.PowerText() + (cpu.Length > 0 ? "; " + cpu : "") + BatteryLogText());
             }
             _powerTick++;
+            if (_powerTick % 60 == 0) CheckMemory();
             UpdateHeat();
             UpdateUnplug();
             UpdateNotice();
+        }
+
+        // ---- memory (to spot slow leaks in long runs), as in W10MSecurityCam / W10MDashcam
+
+        private ulong _peakMemory;
+        private DateTime _lastMemoryLog = DateTime.MinValue;
+
+        private static ulong AppMemory() { try { return Windows.System.MemoryManager.AppMemoryUsage; } catch { return 0; } }
+        private static ulong AppMemoryLimit() { try { return Windows.System.MemoryManager.AppMemoryUsageLimit; } catch { return 0; } }
+
+        /// <summary>Every minute: track peak memory; every 30 minutes (and every 5 when it is past 75 % of the limit) log it.</summary>
+        private void CheckMemory()
+        {
+            ulong mem = AppMemory(), limit = AppMemoryLimit();
+            if (mem > _peakMemory) _peakMemory = mem;
+            bool high = limit > 0 && mem > limit * 3 / 4;
+            if ((DateTime.Now - _lastMemoryLog).TotalMinutes >= 30 || (high && (DateTime.Now - _lastMemoryLog).TotalMinutes >= 5))
+            {
+                _lastMemoryLog = DateTime.Now;
+                Log(string.Format("{0}Memory: {1:0.0} MB (peak {2:0.0}, limit {3:0}, managed {4:0.0}), uptime {5:0.0} h",
+                    high ? "WARNING " : "", mem / 1048576.0, _peakMemory / 1048576.0, limit / 1048576.0,
+                    GC.GetTotalMemory(false) / 1048576.0, (DateTime.Now - _launchedAt).TotalHours));
+            }
         }
 
         private string BatteryLogText()
@@ -103,37 +192,119 @@ namespace W10MWebCam
             if (!hot && _chargingSecs >= 30) _heatWarned = false;
             if (hot && HeatAutoToggle.IsOn && !_protect) { var _ = EnterProtectionAsync(); }
             else if (_protect && _chargingSecs >= 30 && (DateTime.Now - _protectSince).TotalMinutes >= 3) { var _ = LeaveProtectionAsync("charging has resumed"); }
-            _heat = _protect ? "Heat protection on" : hot ? "Hot (charging paused)" : paused ? "Charging paused" : "Healthy";
+            else if (_protectRestartOwed && !_protectBusy && !_busy) { var _ = RestartForProtectionAsync(); }
+            _heat = _protect ? "Heat protection on" : HotUnprotected ? "HOT - heat protection off" : hot ? "Hot (charging paused)" : paused ? "Charging paused" : "Healthy";
+            if (HotUnprotected != _hotUnprotectedShown)
+            {
+                _hotUnprotectedShown = HotUnprotected;
+                if (HotUnprotected) { Log("HOT with heat protection OFF: nothing is done about it (switch it on under Power, or use a 2 A charger)"); PlayChime(false); var buzz = BuzzAsync(2); }
+                else Log("Charging again: the phone has cooled (heat protection still off)");
+            }
+            if (PowerAlert != null)
+            {
+                PowerAlert.Text = _protect ? "Heat protection: power saving forced on" : "HOT and heat protection is off: nothing is done about it - the battery drains on a weak charger";
+                PowerAlert.Visibility = _protect || HotUnprotected ? Visibility.Visible : Visibility.Collapsed;
+            }
         }
+
+        // ---- Heat protection (as in W10MSecurityCam / W10MDashcam): when charging stalls on a good charger, lower the video,
+        // force every power-saving option on and lock the flashlight; put the person's own settings back once charging
+        // resumes. The forced values are never written to the saved settings (SaveCameraSettings and the blackout switch
+        // skip them while _protect), so an app restart in between also comes back with the person's own choices.
+        private bool _protectBusy, _protectRestartOwed;
+        private bool _pOis, _pFocus;
 
         private async System.Threading.Tasks.Task EnterProtectionAsync()
         {
-            if (_protect) return;
-            var before = EffectiveVideo();
-            _protect = true;
-            _protectSince = DateTime.Now;
-            var after = EffectiveVideo();
-            TorchOff();
-            Log("HEAT PROTECTION ON: lowering the stream to " + after?.Item1 + ", " + (after?.Item2 / 1e6)?.ToString("0") + " Mbps until charging resumes (your settings are kept)");
-            if (_camera != null && _camera.IsStreaming && before != null && after != null &&
-                (before.Item1 != after.Item1 || before.Item2 != after.Item2))
-                await RestartStreamAsync();
+            if (_protect || _protectBusy) return;
+            _protectBusy = true;
+            try
+            {
+                _pOis = _tuning.SaveOis; _pFocus = _tuning.SaveFocus;
+                _protect = true;
+                _protectSince = DateTime.Now;
+                EndPhoneAdjust();
+                TorchOff();
+                var after = EffectiveVideo();
+                Log("HEAT PROTECTION ON: charging has paused on a good charger, so the phone is probably too hot. Lowering the stream to " +
+                    after?.Item1 + ", " + (after?.Item2 / 1e6)?.ToString("0") + " Mbps, black screen, stabilization off, focus held and the flashlight locked until charging resumes (your settings are kept)");
+                PlayChime(false);
+                var buzz = BuzzAsync(2);
+                _tuning.SaveOis = true; _tuning.SaveFocus = true;
+                ShowForcedSwitches();
+                ForceDisplayForProtection(); // black screen on, no preview behind it (MainPage.Display.cs)
+                UpdateProtectUi();
+                // One restart picks up the video format and the stabilization setting together (both only change while stopped).
+                await RestartForProtectionAsync();
+            }
+            catch (Exception ex) { Log("Heat protection: " + ex.Message); }
+            finally { _protectBusy = false; }
         }
 
         private async System.Threading.Tasks.Task LeaveProtectionAsync(string why)
         {
-            if (!_protect) return;
-            _protect = false;
-            Log("HEAT PROTECTION OFF (" + why + "): back to your own video settings");
-            if (_camera != null && _camera.IsStreaming) await RestartStreamAsync();
+            if (!_protect || _protectBusy) return;
+            _protectBusy = true;
+            try
+            {
+                _protect = false;
+                Log("HEAT PROTECTION OFF (" + why + "): back to your own video and power-saving settings (the flashlight stays off)");
+                PlayChime(true);
+                var buzz = BuzzAsync(1);
+                _tuning.SaveOis = _pOis; _tuning.SaveFocus = _pFocus;
+                ShowForcedSwitches();
+                RestoreDisplayAfterProtection();
+                UpdateProtectUi();
+                await RestartForProtectionAsync();
+            }
+            catch (Exception ex) { Log("Heat protection: " + ex.Message); }
+            finally { _protectBusy = false; }
+        }
+
+        /// <summary>The stabilization / hold-focus switches show the forced (or restored) values without acting on them.</summary>
+        private void ShowForcedSwitches()
+        {
+            bool was = _loading;
+            _loading = true;
+            try { SaveOisToggle.IsOn = _tuning.SaveOis; SaveFocusToggle.IsOn = _tuning.SaveFocus; }
+            finally { _loading = was; }
+        }
+
+        /// <summary>
+        /// The one restart for heat protection. When the stream is busy starting or stopping, the restart is owed and
+        /// UpdateHeat retries it, so the stream can't stay at 4K while heat protection is on.
+        /// </summary>
+        private async System.Threading.Tasks.Task RestartForProtectionAsync()
+        {
+            if (_camera == null || !_camera.IsStreaming) { _protectRestartOwed = false; return; } // the next start uses the new settings
+            if (_busy) { if (!_protectRestartOwed) Log("Heat protection: stream busy, restarting it shortly"); _protectRestartOwed = true; return; }
+            _protectRestartOwed = false;
+            Log("Heat protection: restarting the stream once");
+            await RestartStreamAsync();
+        }
+
+        /// <summary>Greys out what the person cannot change while heat protection is on.</summary>
+        private void UpdateProtectUi()
+        {
+            bool free = !_protect;
+            ResolutionBox.IsEnabled = BitrateBox.IsEnabled = free;
+            PowerSaveToggle.IsEnabled = KeepPreviewToggle.IsEnabled = free;
+            SaveOisToggle.IsEnabled = free && _tuning.OisSupported;
+            if (OisToggle != null) OisToggle.IsEnabled = SaveOisToggle.IsEnabled;
+            SaveFocusToggle.IsEnabled = free;
+            if (ScreensaverButton != null) ScreensaverButton.IsEnabled = free;
+            UpdatePickTexts();
+            UpdateTorchUi();
+            UpdatePreviewText();
         }
 
         /// <summary>The red notice (heat, safe mode) and the amber one (charger) on the status card; the same text goes to the web page.</summary>
         private void UpdateNotice()
         {
             var alerts = new List<string>();
-            if (_protect) alerts.Add("Heat protection: the stream is lowered to 1080p / 6 Mbps until charging resumes.");
-            else if (_pausedSecs >= 20) alerts.Add("The phone is probably too hot: charging has paused on a good charger. Give it air, lower the resolution, or turn on 'Lower to 1080p' under Power.");
+            if (_protect) alerts.Add("Heat protection: charging paused because the phone is hot - usually the charger can't keep up (a PC USB port or a small adapter; use 2 A or more). Video is 1080p / 6 Mbps, the screen is black, stabilization is off and the flashlight is locked until it charges normally again.");
+            else if (HotUnprotected) alerts.Add("The phone is hot (charging has paused) and heat protection is OFF, so nothing is done about it: full video and the screen as set. Switch heat protection on under Power, lower the video yourself, or use a 2 A charger - on a weak charger the battery drains until the phone dies.");
+            else if (_pausedSecs >= 20) alerts.Add("Charging has paused: the phone is probably hot - usually the charger can't keep up (a PC USB port or a small adapter; use 2 A or more).");
             if (_safeMode) alerts.Add("Safe mode: the standard (MP4) engine is in use until the app is reopened.");
             string charger = ChargerNotice();
             string alert = string.Join(" ", alerts);
@@ -178,6 +349,8 @@ namespace W10MWebCam
             {
                 _unplugAt = DateTime.Now.AddSeconds(limit);
                 Log("On battery - the stream stops in " + limit + " s unless power returns");
+                PlayChime(false);
+                var buzz = BuzzAsync(2);
             }
             int left = (int)Math.Ceiling((_unplugAt - DateTime.Now).TotalSeconds);
             if (left <= 0)
@@ -192,8 +365,7 @@ namespace W10MWebCam
             if (UnplugPanel.Visibility != Visibility.Visible)
             {
                 UnplugPanel.Visibility = Visibility.Visible;
-                BlackoutOverlay.Visibility = Visibility.Collapsed; // lift the black screen so the countdown is visible
-                if (_brightness != null && _brightness.IsSupported) _brightness.StopOverride();
+                var _ = ApplyDisplayAsync(); // lifts the black screen so the countdown is visible (PanelOnScreen)
             }
         }
 
@@ -202,7 +374,7 @@ namespace W10MWebCam
             _unplugAt = DateTime.MaxValue;
             if (UnplugPanel.Visibility != Visibility.Visible) return;
             UnplugPanel.Visibility = Visibility.Collapsed;
-            if (_blackedOut) { _wakeTimer.Stop(); _wakeTimer.Start(); } // back to black after the usual 15 s
+            var _ = ApplyDisplayAsync(); // back to black
         }
 
         private void KeepStreamingButton_Click(object sender, RoutedEventArgs e) => KeepStreaming();

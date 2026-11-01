@@ -1,5 +1,43 @@
 # Changelog
 
+## 1.4.1 (package 1.4.1.0)
+
+Feature parity with W10MSecurityCam and W10MDashcam: what one app of the family did better now exists in all three where
+it applies. The USB and Wi-Fi video, the viewers and the login are unchanged.
+
+**What you notice**
+- **Heat protection is on by default and does the full set:** when charging pauses on a good charger for 20 s the
+  stream drops to 1080p / 6 Mbps and the screen goes black, stabilization is switched off, focus is held and the
+  flashlight is locked until charging has resumed; the greyed controls and the web page say so, and your own settings
+  come back afterwards. *Lower to 1080p if the phone overheats* off = warning only, as before. When the stream was busy
+  at that moment the restart is now owed and retried, so the stream can no longer stay at 4K under heat protection.
+- **A chime and a vibration** when the power-loss countdown starts and when heat protection sets in; a short one when
+  charging resumes.
+- **Service pills under the start button:** USB video (viewers), Wi-Fi video (address, viewers or OFF) and the web
+  page, green while streaming and grey when stopped. Tapping the Wi-Fi or Web pill flips the same switch as under
+  *Network*; tapping USB opens *Network*. The button says *Start video stream*.
+- **Changing the login needs the current password** (new *Current password* box), as in W10MDashcam; the reset to
+  admin / admin needs it too.
+- **4K start hygiene** from the other apps: 6 s of settling before a 4K auto-start (a cold 4K start right after power-up
+  crashed the camera pipeline there), and the camera settings are re-sent 2.5 s after a start instead of at once.
+- **Crash guards for the camera settings:** if the app dies while sending them (or the stabilization setting), it comes
+  back with automatic settings instead of crashing again on a saved value. Settings are sent one after another, never
+  two at once.
+- *Hold focus once it has settled* first tries 30 s after a start and, when it fails (too dark), again after 10 minutes
+  instead of every minute.
+
+**Under the hood**
+- A memory line in the log every 30 minutes (and every 5 past 75 % of the limit), with the peak; `/status` gains
+  `peakMemoryMB`, `managedMemoryMB`, `restarts` and `lastRestartReason`.
+- `/status` also carries the other apps' field names (`uptimeSeconds`, `batteryPercent`, `sensorToEncodedMs`,
+  `keyframeSeconds`, `wifiSignalBars`, `cpuPhonePct`, `cpuAppPct`, `bitrateSetting`, `cameraMode`, `loginRequired`,
+  `time`) plus `charging` and `onExternalPower`; the existing names stay.
+- Changes (`/settings/set`) are read from the request body only, never from the URL.
+- The web page reloads itself after an app update.
+- `tools\Soak-Monitor.ps1` is the same script in all three repositories and collects the phone log every 5 minutes
+  while the log page is on; `tools\Make-Release.ps1` finds the app's name itself and takes `-Version`.
+- The project references the Windows Mobile Extensions for the vibration API.
+
 ## 1.3 (package 1.3.0.0)
 
 **What you notice**

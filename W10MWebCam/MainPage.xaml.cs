@@ -258,8 +258,11 @@ namespace W10MWebCam
                 }
                 else if (autoStarting && StartButton.IsEnabled)
                 {
-                    Log((resumeStreaming ? "Restarting the stream" : "Auto-start") + ": letting the camera settle for 2 s");
-                    await Task.Delay(2000);
+                    // 4K needs longer after power-up before recording starts (a cold 4K start crashed the camera pipeline
+                    // in W10MSecurityCam / W10MDashcam); after a camera switch the camera is warm, 2 s is enough.
+                    bool big = !resumeStreaming && ResolutionBox.SelectedItem is FormatOption af && (long)af.Width * af.Height > 1920L * 1080;
+                    Log((resumeStreaming ? "Restarting the stream" : "Auto-start") + ": letting the camera settle for " + (big ? 6 : 2) + " s");
+                    await Task.Delay(big ? 6000 : 2000);
                     await ToggleStreamingAsync();
                 }
             }

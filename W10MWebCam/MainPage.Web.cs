@@ -80,6 +80,10 @@ namespace W10MWebCam
             {
                 o["memoryMB"] = Num(Windows.System.MemoryManager.AppMemoryUsage / 1048576.0);
                 o["memoryLimitMB"] = Num(Windows.System.MemoryManager.AppMemoryUsageLimit / 1048576.0);
+                ulong mem = Windows.System.MemoryManager.AppMemoryUsage;
+                if (mem > _peakMemory) _peakMemory = mem;
+                o["peakMemoryMB"] = Num(_peakMemory / 1048576.0);
+                o["managedMemoryMB"] = Num(GC.GetTotalMemory(false) / 1048576.0);
             }
             catch { }
             o["heat"] = Str(_heat);

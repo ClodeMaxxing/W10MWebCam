@@ -100,9 +100,33 @@ namespace W10MWebCam
                 Log(_power.PowerText() + (cpu.Length > 0 ? "; " + cpu : "") + BatteryLogText());
             }
             _powerTick++;
+            if (_powerTick % 60 == 0) CheckMemory();
             UpdateHeat();
             UpdateUnplug();
             UpdateNotice();
+        }
+
+        // ---- memory (to spot slow leaks in long runs), as in W10MSecurityCam / W10MDashcam
+
+        private ulong _peakMemory;
+        private DateTime _lastMemoryLog = DateTime.MinValue;
+
+        private static ulong AppMemory() { try { return Windows.System.MemoryManager.AppMemoryUsage; } catch { return 0; } }
+        private static ulong AppMemoryLimit() { try { return Windows.System.MemoryManager.AppMemoryUsageLimit; } catch { return 0; } }
+
+        /// <summary>Every minute: track peak memory; every 30 minutes (and every 5 when it is past 75 % of the limit) log it.</summary>
+        private void CheckMemory()
+        {
+            ulong mem = AppMemory(), limit = AppMemoryLimit();
+            if (mem > _peakMemory) _peakMemory = mem;
+            bool high = limit > 0 && mem > limit * 3 / 4;
+            if ((DateTime.Now - _lastMemoryLog).TotalMinutes >= 30 || (high && (DateTime.Now - _lastMemoryLog).TotalMinutes >= 5))
+            {
+                _lastMemoryLog = DateTime.Now;
+                Log(string.Format("{0}Memory: {1:0.0} MB (peak {2:0.0}, limit {3:0}, managed {4:0.0}), uptime {5:0.0} h",
+                    high ? "WARNING " : "", mem / 1048576.0, _peakMemory / 1048576.0, limit / 1048576.0,
+                    GC.GetTotalMemory(false) / 1048576.0, (DateTime.Now - _launchedAt).TotalHours));
+            }
         }
 
         private string BatteryLogText()

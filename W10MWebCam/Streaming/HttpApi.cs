@@ -137,7 +137,7 @@ namespace W10MWebCam.Streaming
                         return Reply(403, "Forbidden", "text/plain", "View only: set a login on the phone (Network > Login)\n");
                     if (!Login.Check(r.Method, r.Target, authorization, r.RemoteIp, out bool stale))
                         return Reply(401, "Unauthorized", "text/plain", "Login needed\n", Login.Challenge(stale));
-                    var form = ParseForm(r.Body.Length > 0 ? r.Body : r.Query);
+                    var form = ParseForm(r.Body); // changes only in the body, never in the URL
                     form["_via"] = r.FromUsb ? "USB" : "Wi-Fi";
                     string result = ApplySettings != null ? await ApplySettings(form) : "";
                     return Reply(200, "OK", "application/json", WithAccess(await GetSettingsJson(), r, true, result), "Cache-Control: no-store\r\n");

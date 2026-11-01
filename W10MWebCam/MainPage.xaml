@@ -80,6 +80,29 @@
             <Setter Property="BorderBrush" Value="#2E7D46" />
             <Setter Property="BorderThickness" Value="1" />
         </Style>
+        <!-- Service pills under the start button: one line per transport (W10MSecurityCam and W10MWebCam). -->
+        <Style x:Key="ServicePill" TargetType="Border">
+            <Setter Property="Background" Value="#0B1A10" />
+            <Setter Property="BorderBrush" Value="#2E7D46" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="8,2,9,3" />
+            <Setter Property="Margin" Value="0,0,0,3" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+        </Style>
+        <Style x:Key="PillDot" TargetType="Ellipse">
+            <Setter Property="Width" Value="7" />
+            <Setter Property="Height" Value="7" />
+            <Setter Property="Margin" Value="0,0,6,0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Fill" Value="#555555" />
+        </Style>
+        <Style x:Key="PillText" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Consolas" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Foreground" Value="#9CF0B0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
     </Page.Resources>
 
     <Grid>
@@ -99,8 +122,21 @@
                     <TextBlock x:Name="VersionText" Text="" FontSize="11" FontWeight="Bold" Foreground="#39FF14" HorizontalAlignment="Right" VerticalAlignment="Top" />
                 </Grid>
 
-                <Button x:Name="StartButton" Content="Start streaming" HorizontalAlignment="Stretch" FontSize="14"
+                <Button x:Name="StartButton" Content="Start video stream" HorizontalAlignment="Stretch" FontSize="14"
                         Margin="0,0,0,6" Click="StartButton_Click" IsEnabled="False" />
+                <!-- Service strip: what streams where, at a glance. Green dot = streaming; tapping the Wi-Fi and Web pills
+                     flips their switches (the same ones as under Network); tapping USB opens Network. -->
+                <StackPanel x:Name="ServiceStrip" Margin="0,0,0,6">
+                    <Border x:Name="SvcUsb" Style="{StaticResource ServicePill}" Tapped="SvcUsb_Tapped">
+                        <StackPanel Orientation="Horizontal"><Ellipse x:Name="SvcUsbDot" Style="{StaticResource PillDot}" /><TextBlock x:Name="SvcUsbText" Style="{StaticResource PillText}" Text="USB" /></StackPanel>
+                    </Border>
+                    <Border x:Name="SvcWifi" Style="{StaticResource ServicePill}" Tapped="SvcWifi_Tapped">
+                        <StackPanel Orientation="Horizontal"><Ellipse x:Name="SvcWifiDot" Style="{StaticResource PillDot}" /><TextBlock x:Name="SvcWifiText" Style="{StaticResource PillText}" Text="Wi-Fi" /></StackPanel>
+                    </Border>
+                    <Border x:Name="SvcWeb" Style="{StaticResource ServicePill}" Tapped="SvcWeb_Tapped">
+                        <StackPanel Orientation="Horizontal"><Ellipse x:Name="SvcWebDot" Style="{StaticResource PillDot}" /><TextBlock x:Name="SvcWebText" Style="{StaticResource PillText}" Text="Web page" /></StackPanel>
+                    </Border>
+                </StackPanel>
 
                 <!-- Status card: state dot and label, resolution and viewer pills, the big numbers, then the tiles. -->
                 <Border Background="#07140B" BorderBrush="#1F3A26" BorderThickness="1" CornerRadius="6" Padding="10,8,10,8" Margin="0,0,0,6">
@@ -333,7 +369,7 @@
                     </Grid>
                 </StackPanel>
 
-                <Button Style="{StaticResource FoldButton}" Tag="NetworkPanel|NETWORK" Content="NETWORK  &#x25B8;" Click="Fold_Click" />
+                <Button x:Name="NetworkFold" Style="{StaticResource FoldButton}" Tag="NetworkPanel|NETWORK" Content="NETWORK  &#x25B8;" Click="Fold_Click" />
                 <StackPanel x:Name="NetworkPanel" Visibility="Collapsed">
                     <!-- Each switch with the addresses it serves, USB first, then Wi-Fi. -->
                     <Grid>

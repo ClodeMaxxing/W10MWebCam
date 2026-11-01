@@ -98,6 +98,7 @@ namespace W10MWebCam
             if (f != null) ResText.Text = (f.Height >= 2160 ? "4K" : f.Height + "p") + Math.Round(f.Fps) + (_safeMode ? " SAFE" : "");
             StatsText.Visibility = streaming ? Visibility.Visible : Visibility.Collapsed;
             if (streaming) StatsText.Text = string.Format("{0,2:0} fps {1,4:0.0} Mbps", _camera.Fps, _camera.Mbps);
+            UpdateServicePills(streaming);
             if (!_blackedOut || BlackoutOverlay.Visibility != Visibility.Visible) UpdateTiles(streaming);
             bool pulse = streaming && !(_blackedOut && BlackoutOverlay.Visibility == Visibility.Visible); // only while someone can see it
             if (pulse != _dotPulsing)

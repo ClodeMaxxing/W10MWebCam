@@ -395,7 +395,7 @@ namespace W10MWebCam
                     ApplyCameraPower(); // stabilization: also only while stopped
                     _tuning.FrameLimitMs = 1000.0 / Math.Max(1, video.Item1.Fps);
                     await _camera.StartStreamingAsync(video.Item1, video.Item2);
-                    StartButton.Content = "Stop streaming";
+                    StartButton.Content = "Stop video stream";
                     await ApplyBlackoutAsync();
                     if (!_keepAwake) { _displayRequest.RequestActive(); _keepAwake = true; }
                     var _ = AfterStreamStartAsync();
@@ -433,7 +433,7 @@ namespace W10MWebCam
 
         private void StopUi()
         {
-            StartButton.Content = "Start streaming";
+            StartButton.Content = "Start video stream";
             if (_keepAwake) { _displayRequest.RequestRelease(); _keepAwake = false; }
         }
 

@@ -38,6 +38,50 @@ namespace W10MWebCam
             UpdateAddresses();
         }
 
+        // ---------------------------------------------------------------- service pills (under the start button)
+
+        private static string ViewerCountText(int n) => n > 0 ? " · " + n + (n == 1 ? " viewer" : " viewers") : "";
+
+        /// <summary>Once a second (UpdateStatusCard): what streams where. Green while streaming (and the switch is on), grey otherwise.</summary>
+        private void UpdateServicePills(bool streaming)
+        {
+            var grey = Brush(0x55, 0x55, 0x55);
+            var lit = Brush(0x9C, 0xF0, 0xB0);
+            var dim = Brush(0x7F, 0x9A, 0x86);
+            bool wifiOn = WifiVideoToggle.IsOn, wifi = _wifiAddress.Length > 0;
+            SvcUsbDot.Fill = streaming ? GreenFill : grey;
+            SvcUsbText.Foreground = streaming ? lit : dim;
+            SvcUsbText.Text = "USB tcp 127.0.0.1:" + UsbPort + ViewerCountText(_server.ViewerCount(true));
+            SvcWifiDot.Fill = streaming && wifiOn && wifi ? GreenFill : grey;
+            SvcWifiText.Foreground = wifiOn && wifi ? (streaming ? lit : dim) : dim;
+            SvcWifiText.Text = (wifi ? "Wi-Fi tcp " + _wifiAddress + ":" + WifiPort : "Wi-Fi (not connected)") + (wifiOn ? ViewerCountText(_server.ViewerCount(false)) : " OFF");
+            SvcWebDot.Fill = WebToggle.IsOn ? GreenFill : grey;
+            SvcWebText.Foreground = WebToggle.IsOn ? lit : dim;
+            SvcWebText.Text = "Web page " + (WebToggle.IsOn ? "ON" : "OFF");
+        }
+
+        private void OpenNetworkSection()
+        {
+            NetworkPanel.Visibility = Visibility.Visible;
+            NetworkFold.Content = "NETWORK  ▾";
+        }
+
+        private void SvcUsb_Tapped(object sender, Windows.UI.Xaml.Input.TappedRoutedEventArgs e) => OpenNetworkSection();
+
+        /// <summary>The same switch as Video over Wi-Fi under Network: its handler saves, applies and logs the change.</summary>
+        private void SvcWifi_Tapped(object sender, Windows.UI.Xaml.Input.TappedRoutedEventArgs e)
+        {
+            if (_loading) return;
+            WifiVideoToggle.IsOn = !WifiVideoToggle.IsOn;
+            OpenNetworkSection(); // the warning under the switch is worth seeing
+        }
+
+        private void SvcWeb_Tapped(object sender, Windows.UI.Xaml.Input.TappedRoutedEventArgs e)
+        {
+            if (_loading) return;
+            WebToggle.IsOn = !WebToggle.IsOn;
+        }
+
         private string UsbUrl(string path) => "http://127.0.0.1:" + UsbPort + path;
         private string WifiUrl(string path) => _wifiAddress.Length > 0 ? "http://" + _wifiAddress + ":" + LogPort + path : "(no Wi-Fi)";
 

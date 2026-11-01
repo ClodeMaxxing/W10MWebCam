@@ -1,5 +1,44 @@
 # Changelog
 
+## 1.4.4 (package 1.4.4.0)
+
+**The phone screen and the settings page redrawn as one**, the design that W10MSecurityCam 1.4 introduced. The settings
+page is now a mirror of the phone: the same card, bars and drawers, with two differences only, the *Log in* button and
+the web-page switch, which the page cannot turn off. A tap on a view-only page goes to the login.
+
+- **Status card first**, with the app name as its top band. Its header row is the **stream button**: a tall bar with a
+  green edge light while streaming, a pulsing red light, *STREAMING* / *START STREAM* / *HEAT PROTECTION* and the
+  format pill (`4K30`, `SAFE` in safe mode). Under it the FPS / MBPS / VIEWERS tiles, then the phone tiles and the
+  notices.
+- **Service groups** H.264 VIDEO and WEB UI, each with a Wi-Fi and a USB row and the full address (the Wi-Fi video row
+  reads *off* while *Video over Wi-Fi* is off). The USB rows turn green once a PC has connected over the cable, amber
+  *cable?* on external power, grey *no USB*; a tap opens *Network*. They replace the *Connect from the PC* boxes and
+  the service pills.
+- **Preview, Screensaver and Flashlight** are full-width bar buttons with an edge light. *Black screen while streaming*
+  is now called **Screensaver**; Preview and Screensaver exclude each other. The *Preview on the phone* switch, *Show
+  camera picture (60 s)* and *Black out the screen now* are gone: **Preview** shows the picture for 60 s while
+  streaming behind the screensaver, otherwise until it is pressed again; lit, it ends any picture.
+- **Preview on always** (Power; was *Keep the preview running behind the black screen*) starts the preview when
+  switched on, and the Preview bar then reads *ON · ALWAYS*: no 60 s countdown while it is set.
+- **Drawers** are rounded cards with header bands; every switch is a row with an edge light; camera, resolution,
+  bitrate, keyframe and the unplug countdown are picker tiles with a themed list; focus, exposure and white balance are
+  value tiles (Auto / Manual segment, the value, the slider). **Focus once and lock** is an on/off row (*ON · LOCKED*,
+  *ON · HELD*; pressed while on it releases to continuous autofocus). **Image stabilization** is a row under Camera (on
+  by default); *Stabilization off (fixed mount)* and *Hold focus once it has settled* are gone (the automatic focus hold
+  is off; Focus once does it by hand).
+- **Heat protection** (was *Lower to 1080p if the phone overheats*) asks before it goes off. Off and hot, a distinct
+  **HOT, no protection** warning (badge, Power alert, settings page, log, chime) replaces the intervention.
+- **Flashlight without the stream:** it works whenever the camera is open. With the stream stopped the preview is
+  started quietly to carry the LED and ended with it. Still 30 s, still locked by heat protection.
+- **Defaults:** the highest format the camera offers (4K30 on the Lumia 950, was 1080p30) and 24 Mbps above 1080p
+  (4 Mbps at or below); the bitrate follows the resolution across the 1080p line. Existing installs take the new
+  defaults once; pick 1080p30 again for video calls.
+- `/settings/state` adds `heatProtect`, `focusHeld`, `focusLocked`, `saveOis`, `oisSupported`, `wifiVideo`, `webOn`,
+  `logOn`, `statsOn`, `wifiIp`, `usbPort`, `wifiPort`, `viewersUsb`, `viewersWifi`, `usbSeen`, `usbCable`,
+  `torchSupported` and `focusPercent`; `/settings/set` takes `heatprotect=on|off` as well as the old field name.
+
+1.4.3 was the first build of this redesign and was not released.
+
 ## 1.4.2 (package 1.4.2.0)
 
 **Preview and black screen, one rule set in all three apps** (`MainPage.Display.cs`, kept in step by Sync-Core):

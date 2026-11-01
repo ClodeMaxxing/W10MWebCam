@@ -38,6 +38,11 @@ namespace W10MWebCam.Streaming
         public MediaCapture Capture { get; private set; }
         public Action<string> Log = _ => { };
         public event Action<byte[], int> NalReady;
+        /// <summary>
+        /// One encoded frame from the low-latency engine: its NAL units, without start codes. The decoder setup at the
+        /// start and the MP4 engine's NAL units still come one by one through NalReady.
+        /// </summary>
+        public event Action<List<byte[]>> AccessUnitReady;
         public bool IsStreaming { get; private set; }
         private bool _previewing;
 
@@ -380,8 +385,11 @@ namespace W10MWebCam.Streaming
             }
 
             _frameStep = 2;
-            foreach (var nal in AnnexB.Split(data))
-                if (nal.Length > 0) OnNal(nal, nal[0] & 0x1F);
+            var au = AnnexB.Split(data);
+            foreach (var nal in au)
+                if (nal.Length > 0) CountNal(nal, nal[0] & 0x1F);
+            _frameStep = 3;
+            if (au.Count > 0) AccessUnitReady?.Invoke(au); // one buffer per viewer for the whole frame (StreamServer)
         }
 
         /// <summary>Seconds since the low-latency engine last delivered a frame (counts from stream start).</summary>
@@ -406,7 +414,15 @@ namespace W10MWebCam.Streaming
             Log("Streaming stopped");
         }
 
+        /// <summary>A NAL unit from the MP4 engine.</summary>
         private void OnNal(byte[] nal, int type)
+        {
+            CountNal(nal, type);
+            NalReady?.Invoke(nal, type);
+        }
+
+        /// <summary>Statistics only (fps, Mbps, keyframe interval).</summary>
+        private void CountNal(byte[] nal, int type)
         {
             System.Threading.Interlocked.Add(ref _bytes, nal.Length + 4);
             bool firstSlice = (type == 1 || type == 5) && nal.Length > 1 && (nal[1] & 0x80) != 0;
@@ -420,7 +436,6 @@ namespace W10MWebCam.Streaming
                     _lastIdrSec = now;
                 }
             }
-            NalReady?.Invoke(nal, type);
         }
 
         /// <summary>Call about once a second to refresh Fps / Mbps.</summary>

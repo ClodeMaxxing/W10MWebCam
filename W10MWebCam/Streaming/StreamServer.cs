@@ -168,20 +168,60 @@ namespace W10MWebCam.Streaming
             catch { c.Close(); }
         }
 
-        /// <summary>Called for every H.264 NAL unit coming out of the encoder.</summary>
+        /// <summary>Called for single NAL units: the decoder setup at the start, and every NAL unit of the MP4 engine.</summary>
         public void Broadcast(byte[] nal, int type)
         {
             if (type == 7) _sps = nal;
             else if (type == 8) _pps = nal;
 
             bool firstSliceOfIdr = type == 5 && nal.Length > 1 && (nal[1] & 0x80) != 0;
-            byte[] packet = null;
+            lock (_lock) if (_clients.Count == 0) return;
+            Deliver(WithStartCode(nal), firstSliceOfIdr);
+        }
+
+        /// <summary>
+        /// Called for every frame of the low-latency engine: the frame's NAL units go out as one buffer per viewer
+        /// (start codes included), so each viewer gets one socket write per frame instead of one per NAL unit.
+        /// </summary>
+        public void BroadcastAccessUnit(List<byte[]> nals)
+        {
+            bool idr = false;
+            int size = 0;
+            foreach (var nal in nals)
+            {
+                if (nal.Length == 0) continue;
+                int type = nal[0] & 0x1F;
+                if (type == 7) _sps = nal;
+                else if (type == 8) _pps = nal;
+                else if (type == 5 && nal.Length > 1 && (nal[1] & 0x80) != 0) idr = true;
+                size += 4 + nal.Length;
+            }
+            if (size == 0) return;
+            lock (_lock) if (_clients.Count == 0) return;
+            var packet = new byte[size];
+            int at = 0;
+            foreach (var nal in nals)
+            {
+                if (nal.Length == 0) continue;
+                Buffer.BlockCopy(StartCode, 0, packet, at, 4);
+                Buffer.BlockCopy(nal, 0, packet, at + 4, nal.Length);
+                at += 4 + nal.Length;
+            }
+            Deliver(packet, idr);
+        }
+
+        /// <summary>
+        /// Queues one buffer for every viewer. A viewer waiting for a picture starts at a keyframe (keyframeStart:
+        /// the buffer holds the first slice of an IDR frame), after the decoder setup.
+        /// </summary>
+        private void Deliver(byte[] packet, bool keyframeStart)
+        {
             List<Client> dead = null, refused = null;
+            List<string> notes = null; // logged once the lock is released
 
             lock (_lock)
             {
                 if (_clients.Count == 0) return;
-                packet = WithStartCode(nal);
                 foreach (var c in _clients)
                 {
                     if (c.IsClosed || c.IsHttp) continue;
@@ -193,21 +233,21 @@ namespace W10MWebCam.Streaming
                     }
                     if (c.WaitingForKeyframe)
                     {
-                        if (firstSliceOfIdr && _sps != null && _pps != null)
+                        if (keyframeStart && _sps != null && _pps != null)
                         {
                             if (!c.Synced && TooManyViewers(c)) { (refused ?? (refused = new List<Client>())).Add(c); continue; }
                             c.Enqueue(WithStartCode(_sps));
                             c.Enqueue(WithStartCode(_pps));
                             c.Enqueue(packet);
                             c.WaitingForKeyframe = false;
-                            if (!c.Synced) { c.Synced = true; Log("Viewer connected: " + c.Who + " - video flowing"); }
+                            if (!c.Synced) { c.Synced = true; (notes ?? (notes = new List<string>())).Add("Viewer connected: " + c.Who + " - video flowing"); }
                         }
                     }
                     else if (c.OldestAgeSeconds > MaxBacklogSeconds)
                     {
                         c.ClearQueue();
                         c.WaitingForKeyframe = true;
-                        Log("Viewer fell behind - skipping to next keyframe");
+                        (notes ?? (notes = new List<string>())).Add("Viewer fell behind - skipping to next keyframe");
                     }
                     else
                     {
@@ -215,6 +255,7 @@ namespace W10MWebCam.Streaming
                     }
                 }
             }
+            if (notes != null) foreach (var m in notes) Log(m);
             if (dead != null)
                 foreach (var c in dead)
                 {

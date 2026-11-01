@@ -264,6 +264,7 @@ namespace W10MWebCam
                 var old = _camera;
                 _camera = null;
                 old.NalReady -= _server.Broadcast;
+                old.AccessUnitReady -= _server.BroadcastAccessUnit;
                 PreviewElement.Source = null;
                 try { await old.ShutdownAsync(); } catch (Exception ex) { Log("Closing the camera: " + ex.Message); }
                 await InitCameraAsync(wasStreaming);

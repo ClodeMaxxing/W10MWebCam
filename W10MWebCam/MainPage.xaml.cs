@@ -185,6 +185,7 @@ namespace W10MWebCam
                 _camera = new CameraEngine { Log = Log, UseFrontCamera = (_settings.Values["Camera"] as string) == "front" };
                 if (_safeMode) _camera.UseNativeSink = false;
                 _camera.NalReady += _server.Broadcast;
+                _camera.AccessUnitReady += _server.BroadcastAccessUnit;
                 await _camera.InitializeAsync();
                 _tuning.Describe(_camera.Capture);
 

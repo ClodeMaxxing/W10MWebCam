@@ -138,8 +138,18 @@ namespace W10MWebCam.Streaming
                     if (!Login.Check(r.Method, r.Target, authorization, r.RemoteIp, out bool stale))
                         return Reply(401, "Unauthorized", "text/plain", "Login needed\n", Login.Challenge(stale));
                     var form = ParseForm(r.Body); // changes only in the body, never in the URL
+                    // A login change needs the current password as well ("current" field): the request itself is signed
+                    // with it, but a signed request captured on the network could otherwise be replayed with a new password.
+                    string note = null;
+                    if (form.ContainsKey("user") || form.ContainsKey("password"))
+                    {
+                        if (!Login.IsCurrentPassword(form.TryGetValue("current", out var cur) ? cur : null))
+                        { form.Remove("user"); form.Remove("password"); note = "Not changed: enter the current password to change the login"; }
+                    }
+                    form.Remove("current");
                     form["_via"] = r.FromUsb ? "USB" : "Wi-Fi";
-                    string result = ApplySettings != null ? await ApplySettings(form) : "";
+                    string result = ApplySettings != null && form.Count > 1 ? await ApplySettings(form) : "";
+                    if (note != null) result = note + (result.Length > 0 && result != "Nothing changed" ? "; " + result : "");
                     return Reply(200, "OK", "application/json", WithAccess(await GetSettingsJson(), r, true, result), "Cache-Control: no-store\r\n");
                 }
                 return Reply(404, "Not Found", "text/plain", "Not found. Try /settings, /status, /log or /stats\n");

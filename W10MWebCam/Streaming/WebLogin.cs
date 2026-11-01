@@ -88,6 +88,12 @@ namespace W10MWebCam.Streaming
             lock (_lock) { _user = user; _password = password; }
         }
 
+        /// <summary>True when the given password is the current one (a login change must prove it; from W10MDashcam).</summary>
+        public bool IsCurrentPassword(string password)
+        {
+            lock (_lock) return !string.IsNullOrEmpty(_password) && password != null && FixedEquals(password, _password);
+        }
+
         /// <summary>The WWW-Authenticate header(s) for a 401 answer (each line ends with CRLF).</summary>
         public string Challenge(bool stale = false)
         {

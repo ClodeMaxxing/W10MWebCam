@@ -122,9 +122,9 @@ input.tx{background:#0d140f;color:#d6e8d9;border:1px solid #1f3a26;border-radius
 <div class='links' id='loglinks'></div></div>
 <div class='row'><label><input type='checkbox' id='statspage'> Stats page</label><span class='st' id='st-statspage'></span><span class='hint' id='h-statspage'></span><i class='tip' data-tip='Graphs of the last 12 hours (frame rate, bitrate, latency, battery, power, CPU, memory, heat). Samples every 30 s only while this is on. Off by default.'>i</i>
 <div class='links' id='statslinks'></div></div>
-<div class='row'><div class='head'><span>Login for changes<i class='tip' data-tip='Changes need this login, over the USB cable and over Wi-Fi: the browser asks for it before the first change. An empty password resets it to admin / admin.'>i</i></span></div>
+<div class='row'><div class='head'><span>Login for changes<i class='tip' data-tip='Changes need this login, over the USB cable and over Wi-Fi: the browser asks for it before the first change. Changing it needs the current password too. An empty password resets it to admin / admin.'>i</i></span></div>
 <div class='sub' id='loginstate'></div>
-<div id='loginform'><input class='tx' id='lu' placeholder='User name' autocomplete='username'> <input class='tx' id='lp' type='password' placeholder='New password' autocomplete='new-password'> <input class='tx' id='lp2' type='password' placeholder='Repeat password' autocomplete='new-password'>
+<div id='loginform'><input class='tx' id='lc' type='password' placeholder='Current password' autocomplete='current-password'> <input class='tx' id='lu' placeholder='User name' autocomplete='username'> <input class='tx' id='lp' type='password' placeholder='New password' autocomplete='new-password'> <input class='tx' id='lp2' type='password' placeholder='Repeat password' autocomplete='new-password'>
 <div class='btnrow'><button id='lb'>Save login</button><button id='lrm'>Reset to admin / admin</button></div></div></div>
 
 <h2 id='viewer'>Viewer setup</h2>
@@ -284,8 +284,11 @@ $('toviewer').onclick=function(e){e.preventDefault();var h=$('viewer');if(h.next
 $('lb').onclick=function(){var u=$('lu').value.trim(),p=$('lp').value;
  if(p!==$('lp2').value){$('msg').textContent='The two passwords differ';return}
  if(p.length<8){$('msg').textContent='The password needs at least 8 characters';return}
- $('lp').value=$('lp2').value='';send('user='+encodeURIComponent(u||'admin')+'&password='+encodeURIComponent(p))};
-$('lrm').onclick=function(){$('lp').value=$('lp2').value='';send('password=','Resetting the login...')};
+ if(!$('lc').value){$('msg').textContent='Enter the current password too';return}
+ var c=$('lc').value;$('lc').value=$('lp').value=$('lp2').value='';
+ send('current='+encodeURIComponent(c)+'&user='+encodeURIComponent(u||'admin')+'&password='+encodeURIComponent(p))};
+$('lrm').onclick=function(){if(!$('lc').value){$('msg').textContent='Enter the current password too';return}
+ var c=$('lc').value;$('lc').value=$('lp').value=$('lp2').value='';send('current='+encodeURIComponent(c)+'&password=','Resetting the login...')};
 $('wifivideo').onchange=function(){send('wifivideo='+onoff(this.checked),this.checked?'':'Switching off video over Wi-Fi...')};
 ['format','bitrate','keyframe'].forEach(function(i){$(i).onchange=function(){send(i+'='+this.value,'Applying - the stream restarts for a moment...')}});
 $('unplug').onchange=function(){send('unplug='+this.value)};

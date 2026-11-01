@@ -1,5 +1,58 @@
 # Changelog
 
+## 1.3 (package 1.3.0.0)
+
+**What you notice**
+- **New passwords need at least 8 characters** (8-64), on the phone and on the settings page. A shorter password set
+  before keeps working until you change it.
+- **Wrong logins are slowed down:** after 5 wrong logins from one address within a minute, that address is refused for
+  30 seconds (`429 Too Many Requests`). A right login clears the count. Viewing the page without a login is not
+  affected.
+- The login is renewed every 5 minutes; the browser takes the new one by itself without asking for the password again.
+  A wrong or outdated login the browser sends with `/settings/state` now gets a 401, so the browser renews it instead
+  of the page silently dropping to view only.
+- **Every page checks the address it was opened with,** not only changes: the `Host` must be `127.0.0.1` or
+  `localhost` over USB, or one of the phone's addresses over Wi-Fi, otherwise the phone answers 403 (so another site
+  that points its own name at the phone can't read the log or the settings). Tools that send no `Host` still get the
+  pages. The phone's addresses are read again when the network changes (a new DHCP lease, another Wi-Fi network), so
+  the shown addresses and this check follow; every current address passes, not only the first one shown.
+- **Viewer limits:** USB and Wi-Fi each take at most 4 video viewers, at most 2 from one Wi-Fi address, and answer at
+  most 8 web requests at a time (more get `503` "Busy, try again"). A viewer over the limit is closed just before its
+  video would start.
+- The Wi-Fi web port (5001) answers at most 16 connections at once (more get `503`). A web request has to arrive
+  complete within 10 seconds on every port, and a request with a body over 64 KB is refused.
+- The pages can no longer be shown inside a frame on another site. An error answer (500) only says "Internal error,
+  see the app log"; the details go to the app log.
+- The bitrate is saved in bits per second, as in W10MSecurityCam and W10MDashcam, so a change to the bitrate list can
+  no longer pick another bitrate. The saved choice is converted once on the first start after the update.
+
+**Fixes**
+- A `HEAD` request gets the headers (`Content-Length` included) without the body.
+- Why a viewer or web client dropped is logged again (at most one line per 10 seconds, not when the phone closed it on
+  purpose).
+- If the Windows password vault fails while storing the default login, the app still starts and the log says so.
+- Errors in the encoder sink's frame handler are reported again after a stream restart.
+- Failed web requests on port 5001 are logged, at most one line per 30 seconds; refused viewers and requests at most
+  once per 10 seconds.
+
+**Under the hood**
+- Login: random nonces, kept for 5 minutes; `qop="auth"` with a nonce count that must go up; each login answer must be
+  for the address requested. The login is checked once per request.
+- The video ports send each frame to a viewer as one buffer and one write instead of one write per NAL unit.
+- The fps and Mbps counters are read and written safely between the encoder thread and the screen (64-bit values on
+  ARM).
+- The encoder sink hands each frame to the app without an extra copy.
+- The log: a line is only queued when it is logged; the file and the screen are updated once a second (also on suspend
+  and after a crash). The served log is unchanged.
+- Unused code removed (encoder-cache clear, `MaxQueueBytes`, `LastSampleTime`, `PowerMonitor.Dump`).
+
+**Tools**
+- `tools\Sync-Core.ps1` compares the source files the three apps share (`-Check`, the default) and copies one app's
+  copy over the others (`-Fix -From APP`). It needs all three repositories on the PC.
+- `tools\Build-And-Deploy.cmd` finds Visual Studio 2019's MSBuild with vswhere (the 2019 Community path if vswhere is
+  missing) and logs which one it used. It and `tools\Install-Only.cmd` now report the right exit code after the
+  pairing retry.
+
 ## 1.2 (package 1.2.0.0)
 
 - **Video over Wi-Fi is off by default.** The raw video has no login (OBS and VLC can't send one), so with it on anyone

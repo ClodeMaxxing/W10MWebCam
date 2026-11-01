@@ -53,7 +53,16 @@ screen locks or another app opens, and there is no way around that for an app. T
 browser asks for it before the first change (or press **Log in**). USB is not exempt because any program or web page on
 the PC the phone is plugged into can reach the USB port. Viewing the page, `/status` and the video need no login.
 A new install uses **admin / admin**, with a warning on the phone and the page until you change it (Network > Login, or
-on the settings page). An empty password resets it to admin / admin.
+on the settings page). An empty password resets it to admin / admin. Since 1.3 a new password needs at least 8
+characters (a shorter one set before keeps working until you change it). After 5 wrong logins from one address within a
+minute, that address is refused for 30 seconds (`429 Too Many Requests`); viewing without a login is not affected. The
+phone renews the login every 5 minutes, and the browser takes the new one by itself without asking for the password.
+
+Every page needs the address it was opened with to be the phone's: `127.0.0.1` or `localhost` over USB, one of the
+phone's addresses over Wi-Fi (the phone answers 403 otherwise; a host name pointing at the phone doesn't work). The
+addresses follow network changes. USB and Wi-Fi each take at most 4 video viewers (at most 2 from one Wi-Fi address)
+and 8 web requests at a time; port 5001 takes 16 connections. More get "503 Busy, try again", and a viewer over the
+limit is closed before its video starts. A web request has to arrive complete within 10 seconds.
 
 The phone's main screen shows just the two addresses you need, grouped: **USB cable** (video, settings) and **Wi-Fi**
 (video, settings). The Network section lists every page's USB and Wi-Fi address under its switch.
@@ -138,6 +147,9 @@ and a hot battery makes Windows pause charging.
 | Symptom | Fix |
 |---|---|
 | OBS black / "connecting" | Replug USB. Check the app says it is streaming and viewers ≥ 1. Toggle the OBS source off and on. |
+| A viewer is cut off as soon as it connects, "Too many viewers" in the log | At most 4 video viewers over USB and 4 over Wi-Fi, 2 from one Wi-Fi address. Close viewers you don't need. |
+| The page answers "Use the phone's address" (403) | Open it at `127.0.0.1` / `localhost` over USB or at the phone's IP address over Wi-Fi, not by a host name. |
+| "Too many wrong logins - try again in 30 seconds" | 5 wrong logins from one address within a minute. Wait 30 s and log in with the right login. A new password needs at least 8 characters. |
 | **SAFE MODE** on the phone | The previous launch closed while starting a stream. This launch uses the standard (MP4) engine and doesn't auto-start; press Start. **Return to normal mode** (on the phone's red notice or the settings page) goes back to the low-latency engine. |
 | **SELF-CHECK** in the log | The app failed to start twice in a row, so its saved settings were reset to defaults. |
 | Engine shows `MP4` | The low-latency engine stalled twice and the app switched automatically. **Return to normal mode** retries the low-latency engine. |
@@ -153,7 +165,7 @@ and a hot battery makes Windows pause charging.
 Download `W10MWebCam_<version>_ARM.zip` from the
 [latest release](https://github.com/ClodeMaxxing/W10MWebCam/releases/latest). It is ready-built: no compiling and
 nothing else to download. It holds the app package (`W10MWebCam_<package version>_ARM.appx`; the package version has
-four parts, for example 1.1.0.15 in release 1.1.1), `Dependencies\` with the three Microsoft runtime packages it needs
+four parts, for example 1.3.0.0 in release 1.3), `Dependencies\` with the three Microsoft runtime packages it needs
 (`Microsoft.NET.Native.Framework.1.7.appx`, `Microsoft.NET.Native.Runtime.1.7.appx`, `Microsoft.VCLibs.ARM.14.00.appx`),
 the test certificate, `INSTALL.txt` with the steps and `LICENSE`.
 
@@ -192,13 +204,14 @@ The signing key (`W10MWebCam/W10MWebCam_TemporaryKey.pfx`) is not in the reposit
 
 | Script (`tools\`) | Use |
 |---|---|
-| `Build-And-Deploy.cmd` | Build Release ARM and install on the phone (USB first, then Wi-Fi). The app opens by itself after install. Bump `Version` in the manifest for every install. |
+| `Build-And-Deploy.cmd` | Build Release ARM and install on the phone (USB first, then Wi-Fi). The app opens by itself after install. Bump `Version` in the manifest for every install. Finds Visual Studio 2019's MSBuild with vswhere (the 2019 Community path if vswhere is missing) |
 | `Install-Only.cmd` | Re-install the last build without rebuilding |
 | `Get-Phone-Log.cmd` | Download the phone's log (the last three sessions, which survive a crash) to `tools\phone-log.txt` and open it. Needs Network > Log page on |
 | `Test-USB-Video.cmd` | Records 15 s of the USB stream to `tools\usb8020-test.h264` to check it works without OBS |
 | `Soak-Monitor.ps1` | Long-run recorder: samples `/status` every 30 s (over USB, or `-Phone IP` over Wi-Fi) to `tools\soak\*.csv` and keeps an HTML report with graphs and a summary (availability, restarts, heat time, fps, memory trend) |
 | `Monitor-Portal.ps1` | Logs whole-phone CPU, GPU and battery from Device Portal once a minute (`-Pair PIN` first) |
 | `Enable-Crash-Dumps.cmd`, `Get-Crash-Dump.cmd` (`Crash-Dumps.ps1`) | Switch on Windows crash dumps for W10MWebCam through Device Portal (per installed version: run again after an update), list them, and download them to `tools\dump\`. First time: `Crash-Dumps.ps1 -Pair PIN` with the pairing code from the phone |
+| `Sync-Core.ps1` | Compares the source files W10MWebCam, W10MSecurityCam and W10MDashcam share (`-Check`) or copies one app's copy over the others (`-Fix -From APP`); needs all three repositories |
 | `Remove-Dead-IpOverUsb-Keys.cmd` | Optional, run as admin: deletes unused `LumiaCam*` IP-over-USB registry entries from early development |
 
 Put the phone's Wi-Fi address in `tools\phone-ip.txt` (one line, not committed) for the Wi-Fi install fallback and the

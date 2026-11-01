@@ -29,6 +29,22 @@ namespace W10MWebCam
             if (_settings.Values["CamWb"] is int wb && wb > 0) _tuning.WhiteBalanceKelvin = (uint)wb;
             _tuning.SaveOis = GetBool("SaveOis", false);
             _tuning.SaveFocus = GetBool("SaveFocus", false);
+            // Crash guards (from W10MSecurityCam / W10MDashcam): if the app died while applying the camera settings last
+            // time, a saved manual value may be the cause, so go back to automatic instead of crashing again; the same for
+            // the stabilization setting.
+            if (GetBool("TuningInProgress", false))
+            {
+                _settings.Values["TuningInProgress"] = false;
+                _tuning.Auto = true;
+                Log("Camera settings reset to automatic: the app closed while applying them last time.");
+            }
+            if (GetBool("PowerSaveInProgress", false))
+            {
+                _settings.Values["PowerSaveInProgress"] = false;
+                _tuning.SaveOis = false;
+                Log("Stabilization setting reset: the app closed while applying it last time.");
+            }
+            SaveCameraSettings();
             CameraAutoToggle.IsOn = _tuning.Auto;
             SaveOisToggle.IsOn = _tuning.SaveOis;
             SaveOisToggle.IsEnabled = _tuning.OisSupported;
@@ -72,7 +88,12 @@ namespace W10MWebCam
             {
                 SaveCameraSettings();
                 var cap = _camera?.Capture;
-                if (cap != null) await _tuning.ApplyAsync(cap);
+                if (cap != null)
+                {
+                    _settings.Values["TuningInProgress"] = true; // cleared when the camera accepted the settings; see the crash guard in LoadCameraSettings
+                    await _tuning.ApplyAsync(cap);
+                    _settings.Values["TuningInProgress"] = false;
+                }
                 UpdateCameraUi();
             }
             catch (Exception ex) { Log("Camera settings: " + ex.GetType().Name + ": " + ex.Message); }
@@ -202,7 +223,7 @@ namespace W10MWebCam
             SaveCameraSettings();
             // Stabilization only changes while no recording runs, so a running stream restarts once.
             if (_camera != null && _camera.IsStreaming && !_busy) { Log("Stabilization changed - restarting stream"); await RestartStreamAsync(); }
-            else _tuning.ApplyPower(_camera?.Capture);
+            else ApplyCameraPower();
         }
 
         private async void SaveFocusToggle_Toggled(object sender, RoutedEventArgs e)
@@ -274,6 +295,16 @@ namespace W10MWebCam
                 TorchToggle.IsEnabled = _torchWanted || (_tuning.TorchSupported && _camera != null && _camera.IsStreaming && !_protect);
             }
             finally { _loading = was; }
+        }
+
+        /// <summary>Stabilization (only while no recording runs), with the crash guard: if the app dies here, the next launch switches it off.</summary>
+        private void ApplyCameraPower()
+        {
+            if (_camera?.Capture == null) return;
+            _settings.Values["PowerSaveInProgress"] = true;
+            try { _tuning.ApplyPower(_camera.Capture); }
+            catch (Exception ex) { Log("Camera power saving: " + ex.Message); }
+            _settings.Values["PowerSaveInProgress"] = false;
         }
 
         private async Task HoldFocusLaterAsync()

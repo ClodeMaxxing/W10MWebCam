@@ -392,7 +392,7 @@ namespace W10MWebCam
                     // The preview only changes while no recording runs (changing it mid-recording stalls the 4K pipeline):
                     // decide it now, before recording starts.
                     await _camera.SetPreviewAsync(PreviewWanted);
-                    _tuning.ApplyPower(_camera.Capture); // stabilization: also only while stopped
+                    ApplyCameraPower(); // stabilization: also only while stopped
                     _tuning.FrameLimitMs = 1000.0 / Math.Max(1, video.Item1.Fps);
                     await _camera.StartStreamingAsync(video.Item1, video.Item2);
                     StartButton.Content = "Stop streaming";

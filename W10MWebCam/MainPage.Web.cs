@@ -105,6 +105,18 @@ namespace W10MWebCam
             o["blackout"] = Bool(_blackedOut);
             o["previewing"] = Bool(cam != null && cam.Previewing);
             o["wifi"] = Str(_wifiAddress);
+            // The same names as W10MSecurityCam's and W10MDashcam's /status, so one Soak-Monitor serves all three apps.
+            o["uptimeSeconds"] = o["uptime"];
+            o["batteryPercent"] = o["battery"];
+            o["sensorToEncodedMs"] = Num(cam?.LastLatencyMs ?? -1);
+            o["keyframeSeconds"] = o["keyframeSec"];
+            o["wifiSignalBars"] = o["wifiBars"];
+            o["cpuPhonePct"] = o["cpuPhone"];
+            o["cpuAppPct"] = o["cpuApp"];
+            o["bitrateSetting"] = Str(BitrateBox.SelectedItem?.ToString() ?? "");
+            o["cameraMode"] = Str(_tuning.Mode);
+            o["loginRequired"] = Bool(_http.Login.Enabled);
+            o["time"] = Str(DateTime.Now.ToString("yyyy-MM-ddTHH:mm:sszzz"));
             return o;
         }
 

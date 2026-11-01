@@ -72,8 +72,10 @@ namespace W10MWebCam
             try
             {
                 if (_camera?.Capture == null) return;
+                await Task.Delay(2500); // let the first frames flow before touching the camera controls again (W10MSecurityCam / W10MDashcam)
+                if (_camera?.Capture == null || !_camera.IsStreaming) return;
                 await ApplyTuningAsync(force: true);
-                _nextHoldAt = DateTime.Now; // "Hold focus once settled": CameraTick tries it (again every minute until it settles)
+                _nextHoldAt = DateTime.Now.AddSeconds(30); // "Hold focus once settled": CameraTick tries it once the picture has settled
             }
             catch (Exception ex) { Log("Camera settings: " + ex.Message); }
         }
@@ -334,8 +336,9 @@ namespace W10MWebCam
             {
                 var cap = _camera?.Capture;
                 if (cap != null && await _tuning.HoldFocusAsync(cap)) { _nextHoldAt = DateTime.MaxValue; UpdateCameraUi(); }
+                else _nextHoldAt = DateTime.Now.AddMinutes(10); // e.g. too dark to focus: try again later, not every minute
             }
-            catch (Exception ex) { Log("Hold focus: " + ex.Message); }
+            catch (Exception ex) { Log("Hold focus: " + ex.Message); _nextHoldAt = DateTime.Now.AddMinutes(10); }
             finally { _holdBusy = false; }
         }
 

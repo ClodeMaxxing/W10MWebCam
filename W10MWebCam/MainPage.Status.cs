@@ -173,7 +173,7 @@ namespace W10MWebCam
         {
             int viewers = _server.ClientCount;
             StateText.Text = _protect && streaming ? "HEAT PROTECTION" : streaming ? "STREAMING" : _busy || !StartButton.IsEnabled ? "STARTING..." : "START STREAM";
-            StateText.Foreground = _protect ? Brush(0xFF, 0x6B, 0x6B) : streaming ? Brush(0x9C, 0xF0, 0xB0) : Brush(0x8F, 0xB5, 0x96);
+            StateText.Foreground = _protect ? Brush(0xFF, 0x6B, 0x6B) : streaming ? Brush(0xFF, 0xFF, 0xFF) : Brush(0xCF, 0xE8, 0xD4);
             // the recording light: red while streaming (pulsing), dark red when stopped
             StatusDot.Fill = streaming ? Brush(0xFF, 0x30, 0x30) : Brush(0x3A, 0x14, 0x14);
             StatusDot.Stroke = streaming ? Brush(0xFF, 0x80, 0x80) : Brush(0x5A, 0x20, 0x20);

@@ -328,7 +328,7 @@ namespace W10MWebCam
         {
             string result;
             if (on && _protect) { on = false; result = "Flashlight unavailable: heat protection is on"; }
-            else if (on && (!_tuning.TorchSupported || _camera == null || !_camera.IsStreaming)) { on = false; result = "The flashlight works only while streaming"; }
+            else if (on && (!_tuning.TorchSupported || _camera?.Capture == null)) { on = false; result = "Flashlight: the camera is not open yet (or this camera has no flashlight control)"; }
             else result = on ? "Flashlight on for " + TorchSeconds + " s" : "Flashlight off";
             bool was = _torchWanted;
             _torchWanted = on;
@@ -355,8 +355,11 @@ namespace W10MWebCam
                 var cap = _camera?.Capture;
                 if (cap == null || !_tuning.TorchSupported) return;
                 var t = cap.VideoDeviceController.TorchControl;
-                bool want = _torchWanted && _camera.IsStreaming;
+                bool want = _torchWanted;
                 if (t.Enabled != want) t.Enabled = want;
+                // the LED only burns while a camera pipeline runs: with the stream off, the preview carries it
+                if (want && !_camera.IsStreaming && !_camera.Previewing) { _torchPreview = true; var _ = _camera.SetPreviewAsync(true); }
+                else if (!want && _torchPreview) { _torchPreview = false; var _ = ApplyDisplayAsync(); } // back to what the switches say
             }
             catch (Exception ex)
             {
@@ -365,6 +368,8 @@ namespace W10MWebCam
             }
         }
 
+        private bool _torchPreview; // the preview was started only to carry the LED (stream off): ended with the flashlight
+
         private void UpdateTorchUi()
         {
             bool was = _loading;
@@ -372,7 +377,7 @@ namespace W10MWebCam
             try
             {
                 TorchToggle.IsOn = _torchWanted;
-                TorchToggle.IsEnabled = _torchWanted || (_tuning.TorchSupported && _camera != null && _camera.IsStreaming && !_protect);
+                TorchToggle.IsEnabled = _torchWanted || (_tuning.TorchSupported && _camera?.Capture != null && !_protect);
             }
             finally { _loading = was; }
             UpdateTorchButton();
@@ -382,14 +387,14 @@ namespace W10MWebCam
         private void UpdateTorchButton()
         {
             if (TorchBar == null) return;
-            bool streaming = _camera != null && _camera.IsStreaming;
+            bool open = _camera?.Capture != null;
             TorchButton.IsEnabled = TorchToggle.IsEnabled;
             TorchBar.Background = _torchWanted ? GreenFill : Brush(0x16, 0x30, 0x1E);
             TorchStateText.Foreground = _torchWanted ? GreenFill : Brush(0x7F, 0xAE, 0x86);
             TorchStateText.Text = _torchWanted ? "ON · " + TorchSecondsLeft + " s"
                 : _protect ? "OFF · HEAT PROTECTION"
-                : _camera != null && !_tuning.TorchSupported && streaming ? "OFF · NOT ON THIS CAMERA"
-                : !streaming ? "OFF · STREAM FIRST" : "OFF";
+                : open && !_tuning.TorchSupported ? "OFF · NOT ON THIS CAMERA"
+                : !open ? "OFF · CAMERA CLOSED" : "OFF";
         }
 
         private void TorchButton_Click(object sender, RoutedEventArgs e) => SetTorch(!_torchWanted);
@@ -421,13 +426,13 @@ namespace W10MWebCam
         /// <summary>Once a second: the flashlight time limit, and (every 5 s) what the camera is using now.</summary>
         private void CameraTick()
         {
-            if (_torchWanted && (DateTime.Now >= _torchOffAt || _camera == null || !_camera.IsStreaming))
+            if (_torchWanted && (DateTime.Now >= _torchOffAt || _camera?.Capture == null))
             {
                 SetTorch(false);
                 Log("Flashlight switched off automatically");
             }
-            if (TorchToggle.IsEnabled != (_torchWanted || (_tuning.TorchSupported && _camera != null && _camera.IsStreaming && !_protect))) UpdateTorchUi();
-            else if (_torchWanted) UpdateTorchButton(); // the seconds left
+            if (TorchToggle.IsEnabled != (_torchWanted || (_tuning.TorchSupported && _camera?.Capture != null && !_protect))) UpdateTorchUi();
+            else if (_torchWanted) { ApplyTorch(); UpdateTorchButton(); } // the LED again after a stream start/stop re-opened the pipeline; the seconds left
             if (_tuning.SaveFocus && _tuning.FocusAuto && !_tuning.FocusHeld && !_holdBusy && !_busy &&
                 _camera != null && _camera.IsStreaming && DateTime.Now >= _nextHoldAt)
             {

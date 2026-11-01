@@ -271,7 +271,9 @@ function send(body,note){
  .catch(function(e){busyUntil=0;$('msg').textContent=e.message});
 }
 function load(){
- fetch('/settings/state',{cache:'no-store'}).then(function(r){return r.json()}).then(function(j){st=j;render()})
+ fetch('/settings/state',{cache:'no-store'}).then(function(r){return r.json()}).then(function(j){
+  if(st&&st.version&&j.version&&j.version!==st.version){location.reload();return} // the app was updated: get its page
+  st=j;render()})
  .catch(function(){$('stat').innerHTML=notice('The phone is not answering. Is the app open and the cable plugged in?',true)});
 }
 function later(body){busyUntil=Date.now()+4000;clearTimeout(timer);timer=setTimeout(function(){send(body)},400)}
